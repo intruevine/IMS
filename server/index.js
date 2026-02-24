@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -9,21 +9,48 @@ function jsonBigIntReplacer(_key, value) {
   return value;
 }
 
-// 미들웨어
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:4173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:4173', process.env.CLIENT_URL || 'http://localhost:3000'],
+// CORS
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:4173',
+  'https://intruevine.dscloud.biz'
+];
+
+const envAllowedOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
+
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser requests (no Origin header).
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('json replacer', jsonBigIntReplacer);
 
-// 데이터베이스 초기화
+// Database init
 const { initDatabase } = require('./db');
 
-// 라우트
+// Routes
 const contractsRouter = require('./routes/contracts');
 const assetsRouter = require('./routes/assets');
 const usersRouter = require('./routes/users');
@@ -36,12 +63,12 @@ app.use('/api/users', usersRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/members', membersRouter);
 
-// 헬스체크
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 루트 경로 - API 정보 제공
+// API root info
 app.get('/', (req, res) => {
   res.json({
     message: 'InTrueVine IMS API Server',
@@ -72,18 +99,18 @@ app.get('/api', (req, res) => {
   });
 });
 
-// 서버 시작
+// Start server
 async function startServer() {
   try {
     await initDatabase();
-    console.log('✅ Database initialized');
-    
+    console.log('Database initialized');
+
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📊 API Base URL: http://localhost:${PORT}/api`);
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API Base URL: http://localhost:${PORT}/api`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }
