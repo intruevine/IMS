@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 1252
 cls
 
@@ -73,13 +73,14 @@ echo ==========================================
 echo Deployment process completed
 echo ==========================================
 echo.
-echo URL: https://intruvine.dscloud.biz/MA/
+echo URL: https://intruevine.dscloud.biz/MA/
 echo.
 
 set /p OPEN_BROWSER=Open browser? (y/n): 
 if "%OPEN_BROWSER%"=="y" (
-    start https://intruvine.dscloud.biz/MA/
+    start https://intruevine.dscloud.biz/MA/
 )
 
 echo.
 pause
+

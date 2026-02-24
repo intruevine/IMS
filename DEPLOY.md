@@ -1,98 +1,94 @@
-3# Intruevine IMS 배포 가이드
+﻿3# Intruevine IMS 諛고룷 媛?대뱶
 
-## 배포 정보
-- **사이트 URL**: https://intruvine.dscloud.biz
-- **배포 디렉토리**: `/web_packages/MA` (또는 `C:\web_packages\MA`)
-- **빌드 폴더**: `dist/`
+## 諛고룷 ?뺣낫
+- **?ъ씠??URL**: https://intruevine.dscloud.biz
+- **諛고룷 ?붾젆?좊━**: `/web_packages/MA` (?먮뒗 `C:\web_packages\MA`)
+- **鍮뚮뱶 ?대뜑**: `dist/`
 
-## 배포 방법
+## 諛고룷 諛⑸쾿
 
-### 방법 1: 로컬 배포 스크립트 사용 (Windows)
+### 諛⑸쾿 1: 濡쒖뺄 諛고룷 ?ㅽ겕由쏀듃 ?ъ슜 (Windows)
 
-1. 배포 스크립트 실행:
+1. 諛고룷 ?ㅽ겕由쏀듃 ?ㅽ뻾:
 ```batch
 deploy.bat
 ```
 
-2. 스크립트가 자동으로:
-   - 기존 파일 백업 생성
-   - `dist/` 폴더 내용을 배포 디렉토리로 복사
-   - 완료 메시지 표시
+2. ?ㅽ겕由쏀듃媛 ?먮룞?쇰줈:
+   - 湲곗〈 ?뚯씪 諛깆뾽 ?앹꽦
+   - `dist/` ?대뜑 ?댁슜??諛고룷 ?붾젆?좊━濡?蹂듭궗
+   - ?꾨즺 硫붿떆吏 ?쒖떆
 
-### 방법 2: 수동 배포
+### 諛⑸쾿 2: ?섎룞 諛고룷
 
-1. **빌드** (이미 완료됨):
+1. **鍮뚮뱶** (?대? ?꾨즺??:
 ```bash
 npm run build
 ```
 
-2. **dist 폴더 내용을 배포 디렉토리로 복사**:
-   - Windows 탐색기에서 `dist/` 폴더 내용 선택
-   - `C:\web_packages\MA` (또는 지정된 경로)로 복사
-   - 기존 파일 덮어쓰기
+2. **dist ?대뜑 ?댁슜??諛고룷 ?붾젆?좊━濡?蹂듭궗**:
+   - Windows ?먯깋湲곗뿉??`dist/` ?대뜑 ?댁슜 ?좏깮
+   - `C:\web_packages\MA` (?먮뒗 吏?뺣맂 寃쎈줈)濡?蹂듭궗
+   - 湲곗〈 ?뚯씪 ??뼱?곌린
 
-### 방법 3: SSH/FTP 배포 (원격 서버)
+### 諛⑸쾿 3: SSH/FTP 諛고룷 (?먭꺽 ?쒕쾭)
 
 #### SSH (Linux/Mac)
 ```bash
-# 1. 빌드
+# 1. 鍮뚮뱶
 npm run build
 
-# 2. SSH로 서버 접속 후 파일 복사
-scp -r dist/* boazkim@intruvine.dscloud.biz:/web_packages/MA/
+# 2. SSH濡??쒕쾭 ?묒냽 ???뚯씪 蹂듭궗
+scp -r dist/* boazkim@intruevine.dscloud.biz:/web_packages/MA/
 ```
 
 #### FTP/SFTP
 ```bash
-# FileZilla 또는 WinSCP 사용
-# 호스트: intruevine.dscloud.biz
-# 사용자: boazkim
-# 비밀번호: R@kaf_427
-# 로컬: dist/
-# 원격: /web_packages/MA
+# FileZilla ?먮뒗 WinSCP ?ъ슜
+# ?몄뒪?? intruevine.dscloud.biz
+# ?ъ슜?? boazkim
+# 鍮꾨?踰덊샇: R@kaf_427
+# 濡쒖뺄: dist/
+# ?먭꺽: /web_packages/MA
 ```
 
-## 배포된 파일 구조
+## 諛고룷???뚯씪 援ъ“
 
 ```
 /web_packages/MA/
-├── index.html              # 메인 페이지
-├── assets/
-│   ├── index-*.js         # JavaScript 번들
-│   └── index-*.css        # CSS 스타일
-├── manifest.webmanifest    # PWA 매니페스트
-├── registerSW.js          # 서비스 워커 등록
-├── sw.js                  # 서비스 워커
-└── workbox-*.js           # Workbox 라이브러리
-```
+?쒋?? index.html              # 硫붿씤 ?섏씠吏
+?쒋?? assets/
+??  ?쒋?? index-*.js         # JavaScript 踰덈뱾
+??  ?붴?? index-*.css        # CSS ?ㅽ????쒋?? manifest.webmanifest    # PWA 留ㅻ땲?섏뒪???쒋?? registerSW.js          # ?쒕퉬???뚯빱 ?깅줉
+?쒋?? sw.js                  # ?쒕퉬???뚯빱
+?붴?? workbox-*.js           # Workbox ?쇱씠釉뚮윭由?```
 
-## 배포 후 확인사항
+## 諛고룷 ???뺤씤?ы빆
 
-1. **웹사이트 접속**: https://intruvine.dscloud.biz
-2. **로그인 테스트**:
-   - 관리자: admin / admin
-   - 사용자: user / user
-3. **PWA 기능 확인** (모바일/데스크탑)
-4. **캐시 삭제** (Ctrl+F5 또는 Cmd+Shift+R)
+1. **?뱀궗?댄듃 ?묒냽**: https://intruevine.dscloud.biz
+2. **濡쒓렇???뚯뒪??*:
+   - 愿由ъ옄: admin / admin
+   - ?ъ슜?? user / user
+3. **PWA 湲곕뒫 ?뺤씤** (紐⑤컮???곗뒪?ы깙)
+4. **罹먯떆 ??젣** (Ctrl+F5 ?먮뒗 Cmd+Shift+R)
 
-## 문제 해결
+## 臾몄젣 ?닿껐
 
-### 페이지가 로드되지 않을 때
-- 브라우저 캐시 삭제 (Ctrl+Shift+Delete)
-- 서버 로그 확인
-- 파일 권한 확인 (755 또는 644)
+### ?섏씠吏媛 濡쒕뱶?섏? ?딆쓣 ??- 釉뚮씪?곗? 罹먯떆 ??젣 (Ctrl+Shift+Delete)
+- ?쒕쾭 濡쒓렇 ?뺤씤
+- ?뚯씪 沅뚰븳 ?뺤씤 (755 ?먮뒗 644)
 
-### 404 오류
-- index.html 파일 확인
-- .htaccess 파일 (Apache) 또는 nginx 설정 확인
-- 경로 대소문자 확인
+### 404 ?ㅻ쪟
+- index.html ?뚯씪 ?뺤씤
+- .htaccess ?뚯씪 (Apache) ?먮뒗 nginx ?ㅼ젙 ?뺤씤
+- 寃쎈줈 ??뚮Ц???뺤씤
 
-### 스타일/스크립트 로드 오류
-- 개발자 도구 (F12) → Network 탭 확인
-- assets/ 폴더가 올바르게 복사되었는지 확인
-- MIME 타입 설정 확인
+### ?ㅽ????ㅽ겕由쏀듃 濡쒕뱶 ?ㅻ쪟
+- 媛쒕컻???꾧뎄 (F12) ??Network ???뺤씤
+- assets/ ?대뜑媛 ?щ컮瑜닿쾶 蹂듭궗?섏뿀?붿? ?뺤씤
+- MIME ????ㅼ젙 ?뺤씤
 
-## 서버 설정 (Apache .htaccess)
+## ?쒕쾭 ?ㅼ젙 (Apache .htaccess)
 
 ```apache
 <IfModule mod_rewrite.c>
@@ -111,12 +107,12 @@ scp -r dist/* boazkim@intruvine.dscloud.biz:/web_packages/MA/
 </IfModule>
 ```
 
-## 서버 설정 (Nginx)
+## ?쒕쾭 ?ㅼ젙 (Nginx)
 
 ```nginx
 server {
     listen 80;
-    server_name intruvine.dscloud.biz;
+    server_name intruevine.dscloud.biz;
     root /web_packages/MA;
     index index.html;
 
@@ -131,7 +127,7 @@ server {
 }
 ```
 
-## 연락처
-- 개발자: Intruevine Team
-- 버전: v2.0.0
-- 빌드 날짜: 2025.02.23
+## ?곕씫泥?- 媛쒕컻?? Intruevine Team
+- 踰꾩쟾: v2.0.0
+- 鍮뚮뱶 ?좎쭨: 2025.02.23
+

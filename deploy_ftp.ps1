@@ -1,32 +1,32 @@
-# Intruevine IMS FTP 배포 스크립트 (PowerShell)
-# 사용법: PowerShell에서 실행
+﻿# Intruevine IMS FTP 諛고룷 ?ㅽ겕由쏀듃 (PowerShell)
+# ?ъ슜踰? PowerShell?먯꽌 ?ㅽ뻾
 # .\deploy_ftp.ps1
 
-# FTP 서버 정보
-$Server = "intruvine.dscloud.biz"
+# FTP ?쒕쾭 ?뺣낫
+$Server = "intruevine.dscloud.biz"
 $User = "boazkim"
 $Password = "R@kaf_427"
 $RemoteDir = "/web_packages/MA"
 $LocalDist = ".\dist"
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Intruevine IMS FTP 배포" -ForegroundColor Cyan
+Write-Host "Intruevine IMS FTP 諛고룷" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "서버: $Server"
-Write-Host "경로: $RemoteDir"
+Write-Host "?쒕쾭: $Server"
+Write-Host "寃쎈줈: $RemoteDir"
 Write-Host ""
 
-# 빌드 확인
+# 鍮뚮뱶 ?뺤씤
 if (-not (Test-Path "$LocalDist\index.html")) {
-    Write-Host "[오류] dist 폴더가 없습니다." -ForegroundColor Red
-    Write-Host "npm run build를 먼저 실행하세요." -ForegroundColor Yellow
+    Write-Host "[?ㅻ쪟] dist ?대뜑媛 ?놁뒿?덈떎." -ForegroundColor Red
+    Write-Host "npm run build瑜?癒쇱? ?ㅽ뻾?섏꽭??" -ForegroundColor Yellow
     exit 1
 }
 
-# FTP URI 생성
+# FTP URI ?앹꽦
 $ftpUri = "ftp://$Server$RemoteDir"
 
-Write-Host "[1/3] FTP 연결 테스트..."
+Write-Host "[1/3] FTP ?곌껐 ?뚯뒪??.."
 try {
     $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpUri)
     $ftpRequest.Method = [System.Net.WebRequestMethods+Ftp]::ListDirectory
@@ -37,16 +37,16 @@ try {
     
     $response = $ftpRequest.GetResponse()
     $response.Close()
-    Write-Host "[완료] FTP 연결 성공" -ForegroundColor Green
+    Write-Host "[?꾨즺] FTP ?곌껐 ?깃났" -ForegroundColor Green
 } catch {
-    Write-Host "[오류] FTP 연결 실패: $_" -ForegroundColor Red
-    Write-Host "- 호스트: $Server" -ForegroundColor Yellow
-    Write-Host "- 사용자: $User" -ForegroundColor Yellow
+    Write-Host "[?ㅻ쪟] FTP ?곌껐 ?ㅽ뙣: $_" -ForegroundColor Red
+    Write-Host "- ?몄뒪?? $Server" -ForegroundColor Yellow
+    Write-Host "- ?ъ슜?? $User" -ForegroundColor Yellow
     exit 1
 }
 Write-Host ""
 
-# 파일 업로드 함수
+# ?뚯씪 ?낅줈???⑥닔
 function Upload-FtpFile($localFile, $remoteFile) {
     try {
         $uri = "ftp://$Server$remoteFile"
@@ -67,12 +67,12 @@ function Upload-FtpFile($localFile, $remoteFile) {
         
         return $true
     } catch {
-        Write-Host "업로드 실패: $remoteFile - $_" -ForegroundColor Red
+        Write-Host "?낅줈???ㅽ뙣: $remoteFile - $_" -ForegroundColor Red
         return $false
     }
 }
 
-# 디렉토리 생성 함수
+# ?붾젆?좊━ ?앹꽦 ?⑥닔
 function Create-FtpDirectory($remoteDir) {
     try {
         $uri = "ftp://$Server$remoteDir"
@@ -86,7 +86,7 @@ function Create-FtpDirectory($remoteDir) {
             $response = $ftp.GetResponse()
             $response.Close()
         } catch {
-            # 이미 존재할 수 있음
+            # ?대? 議댁옱?????덉쓬
         }
         return $true
     } catch {
@@ -94,10 +94,10 @@ function Create-FtpDirectory($remoteDir) {
     }
 }
 
-Write-Host "[2/3] 파일 업로드 중..." -ForegroundColor Yellow
+Write-Host "[2/3] ?뚯씪 ?낅줈??以?.." -ForegroundColor Yellow
 Write-Host ""
 
-# 파일 목록 수집
+# ?뚯씪 紐⑸줉 ?섏쭛
 $files = Get-ChildItem -Path $LocalDist -Recurse | Where-Object { -not $_.PSIsContainer }
 $totalFiles = $files.Count
 $currentFile = 0
@@ -110,7 +110,7 @@ foreach ($file in $files) {
     $relativePath = $localPath.Replace((Resolve-Path $LocalDist).Path, "").Replace("\", "/")
     $remotePath = "$RemoteDir$relativePath"
     
-    # 디렉토리 생성
+    # ?붾젆?좊━ ?앹꽦
     $remoteDir = Split-Path -Parent $remotePath
     if ($remoteDir -ne $RemoteDir) {
         Create-FtpDirectory $remoteDir
@@ -131,18 +131,19 @@ foreach ($file in $files) {
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
 if ($failCount -eq 0) {
-    Write-Host "[성공] 모든 파일 배포 완료!" -ForegroundColor Green
+    Write-Host "[?깃났] 紐⑤뱺 ?뚯씪 諛고룷 ?꾨즺!" -ForegroundColor Green
 } else {
-    Write-Host "[완료] 배포 완료 (성공: $successCount, 실패: $failCount)" -ForegroundColor Yellow
+    Write-Host "[?꾨즺] 諛고룷 ?꾨즺 (?깃났: $successCount, ?ㅽ뙣: $failCount)" -ForegroundColor Yellow
 }
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "사이트 URL: https://intruvine.dscloud.biz" -ForegroundColor Cyan
-Write-Host "배포 경로: $RemoteDir" -ForegroundColor White
+Write-Host "?ъ씠??URL: https://intruevine.dscloud.biz" -ForegroundColor Cyan
+Write-Host "諛고룷 寃쎈줈: $RemoteDir" -ForegroundColor White
 Write-Host ""
 
-# 완료 후 브라우저 열기 (선택사항)
-$OpenBrowser = Read-Host "브라우저에서 열까요? (y/n)"
+# ?꾨즺 ??釉뚮씪?곗? ?닿린 (?좏깮?ы빆)
+$OpenBrowser = Read-Host "釉뚮씪?곗??먯꽌 ?닿퉴?? (y/n)"
 if ($OpenBrowser -eq 'y') {
-    Start-Process "https://intruvine.dscloud.biz"
+    Start-Process "https://intruevine.dscloud.biz"
 }
+

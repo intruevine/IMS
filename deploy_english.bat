@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 chcp 437
 cls
 
@@ -35,6 +35,7 @@ echo FileZilla started. Press any key after upload...
 pause > nul
 
 echo Done!
-echo URL: https://intruvine.dscloud.biz/MA/
+echo URL: https://intruevine.dscloud.biz/MA/
 echo.
 pause
+

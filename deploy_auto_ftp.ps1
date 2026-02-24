@@ -1,37 +1,37 @@
-param(
-    [string]$Server = "intruvine.dscloud.biz",
+﻿param(
+    [string]$Server = "intruevine.dscloud.biz",
     [string]$User = "boazkim",
     [string]$Password = "R@kaf_427",
     [string]$RemoteDir = "/web_packages/MA",
     [string]$LocalDir = ".\dist"
 )
 
-# FTP 자동 배포 스크립트 (PowerShell)
-# 사용법: .\deploy_auto_ftp.ps1
-# 또는 특정 경로 지정: .\deploy_auto_ftp.ps1 -LocalDir "C:\web_packages\MA"
+# FTP ?먮룞 諛고룷 ?ㅽ겕由쏀듃 (PowerShell)
+# ?ъ슜踰? .\deploy_auto_ftp.ps1
+# ?먮뒗 ?뱀젙 寃쎈줈 吏?? .\deploy_auto_ftp.ps1 -LocalDir "C:\web_packages\MA"
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Intruevine IMS 자동 FTP 배포" -ForegroundColor Cyan
+Write-Host "Intruevine IMS ?먮룞 FTP 諛고룷" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "서버: $Server"
-Write-Host "사용자: $User"
-Write-Host "원격 경로: $RemoteDir"
-Write-Host "로컬 경로: $LocalDir"
+Write-Host "?쒕쾭: $Server"
+Write-Host "?ъ슜?? $User"
+Write-Host "?먭꺽 寃쎈줈: $RemoteDir"
+Write-Host "濡쒖뺄 寃쎈줈: $LocalDir"
 Write-Host ""
 
-# 1. 빌드 확인 및 실행
+# 1. 鍮뚮뱶 ?뺤씤 諛??ㅽ뻾
 if (-not (Test-Path "$LocalDir\index.html")) {
-    Write-Host "[빌드 필요] dist 폴더가 없습니다. 빌드를 시작합니다..." -ForegroundColor Yellow
+    Write-Host "[鍮뚮뱶 ?꾩슂] dist ?대뜑媛 ?놁뒿?덈떎. 鍮뚮뱶瑜??쒖옉?⑸땲??.." -ForegroundColor Yellow
     
     try {
         npm run build
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[오류] 빌드 실패!" -ForegroundColor Red
+            Write-Host "[?ㅻ쪟] 鍮뚮뱶 ?ㅽ뙣!" -ForegroundColor Red
             exit 1
         }
-        Write-Host "[완료] 빌드 성공!" -ForegroundColor Green
+        Write-Host "[?꾨즺] 鍮뚮뱶 ?깃났!" -ForegroundColor Green
     } catch {
-        Write-Host "[오류] 빌드 중 오류 발생: $_" -ForegroundColor Red
+        Write-Host "[?ㅻ쪟] 鍮뚮뱶 以??ㅻ쪟 諛쒖깮: $_" -ForegroundColor Red
         exit 1
     }
 } else {
@@ -39,14 +39,14 @@ if (-not (Test-Path "$LocalDir\index.html")) {
     $currentTime = Get-Date
     $timeDiff = $currentTime - $buildTime
     
-    Write-Host "[정보] 마지막 빌드: $($buildTime.ToString('yyyy-MM-dd HH:mm:ss')) ($([math]::Round($timeDiff.TotalMinutes))분 전)" -ForegroundColor Gray
+    Write-Host "[?뺣낫] 留덉?留?鍮뚮뱶: $($buildTime.ToString('yyyy-MM-dd HH:mm:ss')) ($([math]::Round($timeDiff.TotalMinutes))遺???" -ForegroundColor Gray
     
-    $rebuild = Read-Host "다시 빌드하시겠습니까? (y/n, 기본: n)"
+    $rebuild = Read-Host "?ㅼ떆 鍮뚮뱶?섏떆寃좎뒿?덇퉴? (y/n, 湲곕낯: n)"
     if ($rebuild -eq 'y') {
-        Write-Host "[빌드 시작]..." -ForegroundColor Yellow
+        Write-Host "[鍮뚮뱶 ?쒖옉]..." -ForegroundColor Yellow
         npm run build
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[오류] 빌드 실패!" -ForegroundColor Red
+            Write-Host "[?ㅻ쪟] 鍮뚮뱶 ?ㅽ뙣!" -ForegroundColor Red
             exit 1
         }
     }
@@ -54,8 +54,7 @@ if (-not (Test-Path "$LocalDir\index.html")) {
 
 Write-Host ""
 
-# 2. FTP 연결 테스트
-Write-Host "[1/3] FTP 서버 연결 테스트..." -ForegroundColor Yellow
+# 2. FTP ?곌껐 ?뚯뒪??Write-Host "[1/3] FTP ?쒕쾭 ?곌껐 ?뚯뒪??.." -ForegroundColor Yellow
 try {
     $ftpUri = "ftp://$Server$RemoteDir"
     $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpUri)
@@ -66,22 +65,21 @@ try {
     
     $response = $ftpRequest.GetResponse()
     $response.Close()
-    Write-Host "[완료] FTP 연결 성공!" -ForegroundColor Green
+    Write-Host "[?꾨즺] FTP ?곌껐 ?깃났!" -ForegroundColor Green
 } catch {
-    Write-Host "[오류] FTP 연결 실패: $_" -ForegroundColor Red
-    Write-Host "호스트, 사용자명, 비밀번호를 확인하세요." -ForegroundColor Yellow
+    Write-Host "[?ㅻ쪟] FTP ?곌껐 ?ㅽ뙣: $_" -ForegroundColor Red
+    Write-Host "?몄뒪?? ?ъ슜?먮챸, 鍮꾨?踰덊샇瑜??뺤씤?섏꽭??" -ForegroundColor Yellow
     exit 1
 }
 
-# 3. 파일 목록 준비
-Write-Host ""
-Write-Host "[2/3] 배포 파일 준비..." -ForegroundColor Yellow
+# 3. ?뚯씪 紐⑸줉 以鍮?Write-Host ""
+Write-Host "[2/3] 諛고룷 ?뚯씪 以鍮?.." -ForegroundColor Yellow
 
 $files = Get-ChildItem -Path $LocalDir -Recurse | Where-Object { -not $_.PSIsContainer }
 $totalFiles = $files.Count
-Write-Host "총 $totalFiles 개의 파일을 배포합니다." -ForegroundColor Gray
+Write-Host "珥?$totalFiles 媛쒖쓽 ?뚯씪??諛고룷?⑸땲??" -ForegroundColor Gray
 
-# 파일 업로드 함수
+# ?뚯씪 ?낅줈???⑥닔
 function Upload-File($localFile, $remoteFile) {
     try {
         $uri = "ftp://$Server$remoteFile"
@@ -101,12 +99,12 @@ function Upload-File($localFile, $remoteFile) {
         
         return $true
     } catch {
-        Write-Host "업로드 실패: $remoteFile - $_" -ForegroundColor Red
+        Write-Host "?낅줈???ㅽ뙣: $remoteFile - $_" -ForegroundColor Red
         return $false
     }
 }
 
-# 디렉토리 생성 함수
+# ?붾젆?좊━ ?앹꽦 ?⑥닔
 function Create-Directory($remoteDir) {
     try {
         $uri = "ftp://$Server$remoteDir"
@@ -119,7 +117,7 @@ function Create-Directory($remoteDir) {
             $response = $ftp.GetResponse()
             $response.Close()
         } catch {
-            # 이미 존재할 수 있음
+            # ?대? 議댁옱?????덉쓬
         }
         return $true
     } catch {
@@ -127,9 +125,8 @@ function Create-Directory($remoteDir) {
     }
 }
 
-# 4. 파일 업로드
-Write-Host ""
-Write-Host "[3/3] FTP 업로드 중..." -ForegroundColor Yellow
+# 4. ?뚯씪 ?낅줈??Write-Host ""
+Write-Host "[3/3] FTP ?낅줈??以?.." -ForegroundColor Yellow
 Write-Host ""
 
 $successCount = 0
@@ -142,7 +139,7 @@ foreach ($file in $files) {
     $relativePath = $localPath.Replace((Resolve-Path $LocalDir).Path, "").Replace("\", "/")
     $remotePath = "$RemoteDir$relativePath"
     
-    # 디렉토리 생성
+    # ?붾젆?좊━ ?앹꽦
     $remoteDir = Split-Path -Parent $remotePath
     if ($remoteDir -ne $RemoteDir) {
         Create-Directory $remoteDir
@@ -164,17 +161,18 @@ foreach ($file in $files) {
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
 if ($failCount -eq 0) {
-    Write-Host "[성공] 모든 파일 배포 완료! ($successCount/$totalFiles)" -ForegroundColor Green
+    Write-Host "[?깃났] 紐⑤뱺 ?뚯씪 諛고룷 ?꾨즺! ($successCount/$totalFiles)" -ForegroundColor Green
 } else {
-    Write-Host "[완료] 배포 완료 (성공: $successCount, 실패: $failCount)" -ForegroundColor Yellow
+    Write-Host "[?꾨즺] 諛고룷 ?꾨즺 (?깃났: $successCount, ?ㅽ뙣: $failCount)" -ForegroundColor Yellow
 }
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "사이트 URL: https://intruvine.dscloud.biz/MA" -ForegroundColor Cyan
+Write-Host "?ъ씠??URL: https://intruevine.dscloud.biz/MA" -ForegroundColor Cyan
 Write-Host ""
 
-# 브라우저 열기 여부
-$openBrowser = Read-Host "브라우저에서 확인하시겠습니까? (y/n)"
+# 釉뚮씪?곗? ?닿린 ?щ?
+$openBrowser = Read-Host "釉뚮씪?곗??먯꽌 ?뺤씤?섏떆寃좎뒿?덇퉴? (y/n)"
 if ($openBrowser -eq 'y') {
-    Start-Process "https://intruvine.dscloud.biz/MA"
+    Start-Process "https://intruevine.dscloud.biz/MA"
 }
+

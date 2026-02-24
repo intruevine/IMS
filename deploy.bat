@@ -1,67 +1,68 @@
-@echo off
+﻿@echo off
 chcp 65001
 
-REM 배포 스크립트 - Intruevine IMS
-REM 사용법: deploy.bat
+REM 諛고룷 ?ㅽ겕由쏀듃 - Intruevine IMS
+REM ?ъ슜踰? deploy.bat
 
 echo ==========================================
-echo Intruevine IMS 배포 스크립트
+echo Intruevine IMS 諛고룷 ?ㅽ겕由쏀듃
 echo ==========================================
 echo.
 
-REM 빌드 확인
+REM 鍮뚮뱶 ?뺤씤
 if not exist "dist\index.html" (
-    echo [오류] dist 폴더가 없습니다. 먼저 npm run build를 실행하세요.
+    echo [?ㅻ쪟] dist ?대뜑媛 ?놁뒿?덈떎. 癒쇱? npm run build瑜??ㅽ뻾?섏꽭??
     pause
     exit /b 1
 )
 
-REM 배포 디렉토리 설정
+REM 諛고룷 ?붾젆?좊━ ?ㅼ젙
 set DEPLOY_DIR=C:\web_packages\MA
 
-REM 배포 디렉토리 존재 확인
+REM 諛고룷 ?붾젆?좊━ 議댁옱 ?뺤씤
 if not exist "%DEPLOY_DIR%" (
-    echo [오류] 배포 디렉토리가 존재하지 않습니다: %DEPLOY_DIR%
-    echo 디렉토리를 생성하거나 경로를 확인하세요.
+    echo [?ㅻ쪟] 諛고룷 ?붾젆?좊━媛 議댁옱?섏? ?딆뒿?덈떎: %DEPLOY_DIR%
+    echo ?붾젆?좊━瑜??앹꽦?섍굅??寃쎈줈瑜??뺤씤?섏꽭??
     pause
     exit /b 1
 )
 
-echo 배포 디렉토리: %DEPLOY_DIR%
+echo 諛고룷 ?붾젆?좊━: %DEPLOY_DIR%
 echo.
 
-REM 기존 파일 백업
+REM 湲곗〈 ?뚯씪 諛깆뾽
 set BACKUP_DIR=%DEPLOY_DIR%_backup_%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
 set BACKUP_DIR=%BACKUP_DIR: =0%
-echo 기존 파일 백업 중... 
+echo 湲곗〈 ?뚯씪 諛깆뾽 以?.. 
 xcopy /E /I /H /Y "%DEPLOY_DIR%" "%BACKUP_DIR%" >nul 2>&1
 if %errorlevel% == 0 (
-    echo [완료] 백업: %BACKUP_DIR%
+    echo [?꾨즺] 諛깆뾽: %BACKUP_DIR%
 ) else (
-    echo [경고] 백업 실패 (파일이 없을 수 있음)
+    echo [寃쎄퀬] 諛깆뾽 ?ㅽ뙣 (?뚯씪???놁쓣 ???덉쓬)
 )
 echo.
 
-REM dist 폴더 내용을 배포 디렉토리로 복사
-echo 파일 복사 중...
+REM dist ?대뜑 ?댁슜??諛고룷 ?붾젆?좊━濡?蹂듭궗
+echo ?뚯씪 蹂듭궗 以?..
 xcopy /E /I /H /Y "dist\*" "%DEPLOY_DIR%\" >nul 2>&1
 
 if %errorlevel% == 0 (
     echo.
     echo ==========================================
-    echo [성공] 배포가 완료되었습니다!
+    echo [?깃났] 諛고룷媛 ?꾨즺?섏뿀?듬땲??
     echo ==========================================
     echo.
-    echo 배포 URL: https://intruvine.dscloud.biz
-    echo 배포 경로: %DEPLOY_DIR%
+    echo 諛고룷 URL: https://intruevine.dscloud.biz
+    echo 諛고룷 寃쎈줈: %DEPLOY_DIR%
     echo.
-    echo 브라우저에서 사이트를 확인하세요.
+    echo 釉뚮씪?곗??먯꽌 ?ъ씠?몃? ?뺤씤?섏꽭??
     echo.
 ) else (
     echo.
-    echo [오류] 파일 복사 중 문제가 발생했습니다.
-    echo 관리자 권한으로 실행하거나 경로를 확인하세요.
+    echo [?ㅻ쪟] ?뚯씪 蹂듭궗 以?臾몄젣媛 諛쒖깮?덉뒿?덈떎.
+    echo 愿由ъ옄 沅뚰븳?쇰줈 ?ㅽ뻾?섍굅??寃쎈줈瑜??뺤씤?섏꽭??
     echo.
 )
 
 pause
+

@@ -1,35 +1,35 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# Intruevine IMS 원격 배포 스크립트
-# 사용법: ./deploy_remote.sh
+# Intruevine IMS ?먭꺽 諛고룷 ?ㅽ겕由쏀듃
+# ?ъ슜踰? ./deploy_remote.sh
 
-# 서버 정보
-SERVER="intruvine.dscloud.biz"
+# ?쒕쾭 ?뺣낫
+SERVER="intruevine.dscloud.biz"
 USER="boazkim"
 PASSWORD="R@kaf_427"
 REMOTE_DIR="/web_packages/MA"
 LOCAL_DIST="./dist"
 
 echo "=========================================="
-echo "Intruevine IMS 원격 배포"
+echo "Intruevine IMS ?먭꺽 諛고룷"
 echo "=========================================="
-echo "서버: $SERVER"
-echo "경로: $REMOTE_DIR"
+echo "?쒕쾭: $SERVER"
+echo "寃쎈줈: $REMOTE_DIR"
 echo ""
 
-# 빌드 확인
+# 鍮뚮뱶 ?뺤씤
 if [ ! -d "$LOCAL_DIST" ] || [ ! -f "$LOCAL_DIST/index.html" ]; then
-    echo "[오류] dist 폴더가 없습니다."
-    echo "npm run build를 먼저 실행하세요."
+    echo "[?ㅻ쪟] dist ?대뜑媛 ?놁뒿?덈떎."
+    echo "npm run build瑜?癒쇱? ?ㅽ뻾?섏꽭??"
     exit 1
 fi
 
-# sshpass 설치 확인
+# sshpass ?ㅼ튂 ?뺤씤
 if ! command -v sshpass &> /dev/null; then
-    echo "[설치] sshpass가 필요합니다..."
+    echo "[?ㅼ튂] sshpass媛 ?꾩슂?⑸땲??.."
     # Windows (Git Bash)
     if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-        echo "Git Bash에서는 수동 설치 필요:"
+        echo "Git Bash?먯꽌???섎룞 ?ㅼ튂 ?꾩슂:"
         echo "https://github.com/akocero/sshpass-for-windows/releases"
         exit 1
     else
@@ -38,48 +38,49 @@ if ! command -v sshpass &> /dev/null; then
     fi
 fi
 
-echo "[1/3] 서버 연결 테스트..."
-sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no "$USER@$SERVER" "echo '연결 성공'" > /dev/null 2>&1
+echo "[1/3] ?쒕쾭 ?곌껐 ?뚯뒪??.."
+sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no "$USER@$SERVER" "echo '?곌껐 ?깃났'" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "[오류] 서버 연결 실패"
-    echo "- 사용자명/비밀번호 확인"
-    echo "- 서버 주소 확인"
+    echo "[?ㅻ쪟] ?쒕쾭 ?곌껐 ?ㅽ뙣"
+    echo "- ?ъ슜?먮챸/鍮꾨?踰덊샇 ?뺤씤"
+    echo "- ?쒕쾭 二쇱냼 ?뺤씤"
     exit 1
 fi
-echo "[완료] 서버 연결 성공"
+echo "[?꾨즺] ?쒕쾭 ?곌껐 ?깃났"
 echo ""
 
-echo "[2/3] 기존 파일 백업..."
+echo "[2/3] 湲곗〈 ?뚯씪 諛깆뾽..."
 BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
 sshpass -p "$PASSWORD" ssh -o StrictHostKeyChecking=no "$USER@$SERVER" "
     if [ -d '$REMOTE_DIR' ] && [ \"\$(ls -A $REMOTE_DIR)\" ]; then
         cp -r $REMOTE_DIR ${REMOTE_DIR}_backup_$BACKUP_DATE
-        echo '백업 완료: ${REMOTE_DIR}_backup_$BACKUP_DATE'
+        echo '諛깆뾽 ?꾨즺: ${REMOTE_DIR}_backup_$BACKUP_DATE'
     else
-        echo '백업 없음 (기존 파일 없음)'
+        echo '諛깆뾽 ?놁쓬 (湲곗〈 ?뚯씪 ?놁쓬)'
     fi
 "
 echo ""
 
-echo "[3/3] 파일 업로드 중... (시간이 소요될 수 있습니다)"
+echo "[3/3] ?뚯씪 ?낅줈??以?.. (?쒓컙???뚯슂?????덉뒿?덈떎)"
 sshpass -p "$PASSWORD" scp -o StrictHostKeyChecking=no -r "$LOCAL_DIST"/* "$USER@$SERVER:$REMOTE_DIR/"
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "=========================================="
-    echo "[성공] 배포가 완료되었습니다!"
+    echo "[?깃났] 諛고룷媛 ?꾨즺?섏뿀?듬땲??"
     echo "=========================================="
     echo ""
-    echo "사이트 URL: https://intruvine.dscloud.biz"
-    echo "배포 경로: $REMOTE_DIR"
+    echo "?ъ씠??URL: https://intruevine.dscloud.biz"
+    echo "諛고룷 寃쎈줈: $REMOTE_DIR"
     echo ""
-    echo "브라우저에서 확인하세요."
+    echo "釉뚮씪?곗??먯꽌 ?뺤씤?섏꽭??"
     echo ""
 else
     echo ""
-    echo "[오류] 업로드 실패"
-    echo "- 네트워크 연결 확인"
-    echo "- 서버 디스크 공간 확인"
-    echo "- 파일 권한 확인"
+    echo "[?ㅻ쪟] ?낅줈???ㅽ뙣"
+    echo "- ?ㅽ듃?뚰겕 ?곌껐 ?뺤씤"
+    echo "- ?쒕쾭 ?붿뒪??怨듦컙 ?뺤씤"
+    echo "- ?뚯씪 沅뚰븳 ?뺤씤"
     exit 1
 fi
+
