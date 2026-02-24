@@ -1,5 +1,8 @@
-// API 클라이언트 - 백엔드 서버 연동
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+﻿// API ?대씪?댁뼵??- 諛깆뿏???쒕쾭 ?곕룞
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api')
+).replace(/\/+$/, '');
 const AUTH_TOKEN_KEY = 'ims-auth-token';
 
 class APIError extends Error {
@@ -52,7 +55,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json();
 }
 
-// 계약 API
+// 怨꾩빟 API
 export const contractsAPI = {
   getAll: (params?: { search?: string; status?: string; page?: number; limit?: number }) => {
     const queryParams = new URLSearchParams();
@@ -82,7 +85,7 @@ export const contractsAPI = {
   }),
 };
 
-// 자산 API
+// ?먯궛 API
 export const assetsAPI = {
   getAll: (params?: { category?: string; search?: string; cycle?: string; page?: number; limit?: number }) => {
     const queryParams = new URLSearchParams();
@@ -115,7 +118,7 @@ export const assetsAPI = {
   }),
 };
 
-// 사용자 API
+// ?ъ슜??API
 export const usersAPI = {
   login: (username: string, password: string) => fetchAPI<{ user: any; token: string; message: string }>('/users/login', {
     method: 'POST',
@@ -163,7 +166,7 @@ export const usersAPI = {
   }),
 };
 
-// 이벤트 API
+// ?대깽??API
 export const eventsAPI = {
   getAll: (params?: { start?: string; end?: string; type?: string }) => {
     const queryParams = new URLSearchParams();
@@ -201,7 +204,7 @@ export const eventsAPI = {
   }),
 };
 
-// 멤버 API
+// 硫ㅻ쾭 API
 export const membersAPI = {
   getAll: (params?: { contract_id?: number; status?: string }) => {
     const queryParams = new URLSearchParams();
@@ -237,3 +240,5 @@ export default {
   events: eventsAPI,
   members: membersAPI,
 };
+
+
