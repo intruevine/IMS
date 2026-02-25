@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 
+const ALLOWED_ROLES = ['admin', 'manager', 'user'];
 function convertBigInt(obj) {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'bigint') return Number(obj);
@@ -172,9 +173,9 @@ router.post('/', authenticateToken, async (req, res) => {
     if (!username || !display_name || !password) {
       return res.status(400).json({ error: 'username, display_name and password are required' });
     }
-    if (!['admin', 'manager', 'user'].includes(normalizedRole)) {
-      return res.status(400).json({ error: 'role must be admin, manager, or user' });
-    }
+      if (!['admin', 'manager', 'user'].includes(normalizedRole)) {
+        return res.status(400).json({ error: 'role must be admin, manager, or user' });
+      }
 
     const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
     if (existing) {
@@ -206,7 +207,7 @@ router.put('/:username/approve', authenticateToken, async (req, res) => {
       const { role = 'user' } = req.body || {};
       const normalizedRole = String(role || 'user').trim();
       if (!['admin', 'manager', 'user'].includes(normalizedRole)) {
-        return res.status(400).json({ error: 'role must be admin or user' });
+        return res.status(400).json({ error: 'role must be admin, manager, or user' });
       }
 
     await conn.query(
@@ -258,7 +259,7 @@ router.put('/:username', authenticateToken, async (req, res) => {
     if (!display_name || !normalizedRole) {
       return res.status(400).json({ error: 'display_name and role are required' });
     }
-    if (!['admin', 'user'].includes(normalizedRole)) {
+    if (!ALLOWED_ROLES.includes(normalizedRole)) {
       return res.status(400).json({ error: 'role must be admin, manager, or user' });
     }
 
@@ -334,6 +335,37 @@ router.delete('/:username', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting user:', error);
     res.status(500).json({ error: 'Failed to delete user' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// Get single user (admin or self)
+router.get('/:username', authenticateToken, async (req, res) => {
+  let conn;
+  try {
+    const requester = req.user || {};
+    const isSelf = requester.username === req.params.username;
+    if (!isSelf && !isAdmin(req)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    conn = await pool.getConnection();
+    const [user] = await conn.query(
+      `SELECT username, display_name, role, approval_status, approved_at, approved_by, created_at, updated_at
+       FROM users
+       WHERE username = ?`,
+      [req.params.username]
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(convertBigInt(user));
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
   } finally {
     if (conn) conn.release();
   }

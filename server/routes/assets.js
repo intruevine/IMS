@@ -19,6 +19,68 @@ function convertBigInt(obj) {
   return obj;
 }
 
+function normalizeDetails(details) {
+  if (!Array.isArray(details)) return [];
+  return details
+    .map((detail) => ({
+      content: String(detail?.content || '').trim(),
+      qty: String(detail?.qty || '').trim(),
+      unit: String(detail?.unit || '').trim() || 'ea'
+    }))
+    .filter((detail) => detail.content || detail.qty);
+}
+
+async function fetchDetailsMap(conn, assetIds) {
+  if (!Array.isArray(assetIds) || assetIds.length === 0) return new Map();
+  const placeholders = assetIds.map(() => '?').join(', ');
+  const details = await conn.query(
+    `SELECT asset_id, content, qty, unit
+     FROM asset_details
+     WHERE asset_id IN (${placeholders})
+     ORDER BY id ASC`,
+    assetIds
+  );
+
+  const map = new Map();
+  for (const detail of details) {
+    const bucket = map.get(detail.asset_id) || [];
+    bucket.push({
+      content: detail.content || '',
+      qty: detail.qty || '',
+      unit: detail.unit || 'ea'
+    });
+    map.set(detail.asset_id, bucket);
+  }
+  return map;
+}
+
+function formatAsset(asset, detailsMap) {
+  return {
+    ...asset,
+    engineer: {
+      main: {
+        name: asset.engineer_main_name,
+        rank: asset.engineer_main_rank,
+        phone: asset.engineer_main_phone,
+        email: asset.engineer_main_email
+      },
+      sub: {
+        name: asset.engineer_sub_name,
+        rank: asset.engineer_sub_rank,
+        phone: asset.engineer_sub_phone,
+        email: asset.engineer_sub_email
+      }
+    },
+    sales: {
+      name: asset.sales_name,
+      rank: asset.sales_rank,
+      phone: asset.sales_phone,
+      email: asset.sales_email
+    },
+    details: detailsMap.get(asset.id) || []
+  };
+}
+
 // List all assets (auth required)
 router.get('/', authenticateToken, async (req, res) => {
   let conn;
@@ -66,30 +128,8 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const assets = await conn.query(query, params);
     
-    // Format engineer/sales fields for frontend shape
-    const formattedAssets = assets.map(asset => ({
-      ...asset,
-      engineer: {
-        main: {
-          name: asset.engineer_main_name,
-          rank: asset.engineer_main_rank,
-          phone: asset.engineer_main_phone,
-          email: asset.engineer_main_email
-        },
-        sub: {
-          name: asset.engineer_sub_name,
-          rank: asset.engineer_sub_rank,
-          phone: asset.engineer_sub_phone,
-          email: asset.engineer_sub_email
-        }
-      },
-      sales: {
-        name: asset.sales_name,
-        rank: asset.sales_rank,
-        phone: asset.sales_phone,
-        email: asset.sales_email
-      }
-    }));
+    const detailsMap = await fetchDetailsMap(conn, assets.map((asset) => asset.id));
+    const formattedAssets = assets.map((asset) => formatAsset(asset, detailsMap));
     
     res.json(convertBigInt({ assets: formattedAssets, total, page: parseInt(page), limit: parseInt(limit) }));
   } catch (error) {
@@ -107,29 +147,8 @@ router.get('/contract/:contractId', authenticateToken, async (req, res) => {
     conn = await pool.getConnection();
     const assets = await conn.query('SELECT * FROM assets WHERE contract_id = ?', [req.params.contractId]);
     
-    const formattedAssets = assets.map(asset => ({
-      ...asset,
-      engineer: {
-        main: {
-          name: asset.engineer_main_name,
-          rank: asset.engineer_main_rank,
-          phone: asset.engineer_main_phone,
-          email: asset.engineer_main_email
-        },
-        sub: {
-          name: asset.engineer_sub_name,
-          rank: asset.engineer_sub_rank,
-          phone: asset.engineer_sub_phone,
-          email: asset.engineer_sub_email
-        }
-      },
-      sales: {
-        name: asset.sales_name,
-        rank: asset.sales_rank,
-        phone: asset.sales_phone,
-        email: asset.sales_email
-      }
-    }));
+    const detailsMap = await fetchDetailsMap(conn, assets.map((asset) => asset.id));
+    const formattedAssets = assets.map((asset) => formatAsset(asset, detailsMap));
     
     res.json(convertBigInt(formattedAssets));
   } catch (error) {
@@ -151,28 +170,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Asset not found' });
     }
     
-    asset.engineer = {
-      main: {
-        name: asset.engineer_main_name,
-        rank: asset.engineer_main_rank,
-        phone: asset.engineer_main_phone,
-        email: asset.engineer_main_email
-      },
-      sub: {
-        name: asset.engineer_sub_name,
-        rank: asset.engineer_sub_rank,
-        phone: asset.engineer_sub_phone,
-        email: asset.engineer_sub_email
-      }
-    };
-    asset.sales = {
-      name: asset.sales_name,
-      rank: asset.sales_rank,
-      phone: asset.sales_phone,
-      email: asset.sales_email
-    };
-    
-    res.json(convertBigInt(asset));
+    const detailsMap = await fetchDetailsMap(conn, [asset.id]);
+    res.json(convertBigInt(formatAsset(asset, detailsMap)));
   } catch (error) {
     console.error('Error fetching asset:', error);
     res.status(500).json({ error: 'Failed to fetch asset' });
@@ -186,8 +185,9 @@ router.post('/', authenticateToken, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     
-    const { contract_id, category, item, product, qty, cycle, scope, remark, company, engineer, sales } = req.body;
+    const { contract_id, category, item, product, qty, cycle, scope, remark, company, engineer, sales, details } = req.body;
     
     const result = await conn.query(
       `INSERT INTO assets (
@@ -203,9 +203,22 @@ router.post('/', authenticateToken, async (req, res) => {
         sales?.name, sales?.rank, sales?.phone, sales?.email
       ]
     );
+
+    const normalizedDetails = normalizeDetails(details);
+    if (normalizedDetails.length > 0) {
+      for (const detail of normalizedDetails) {
+        await conn.query(
+          'INSERT INTO asset_details (asset_id, content, qty, unit) VALUES (?, ?, ?, ?)',
+          [result.insertId, detail.content, detail.qty, detail.unit]
+        );
+      }
+    }
+
+    await conn.commit();
     
     res.status(201).json(convertBigInt({ id: result.insertId, message: 'Asset created successfully' }));
   } catch (error) {
+    if (conn) await conn.rollback();
     console.error('Error creating asset:', error);
     res.status(500).json({ error: 'Failed to create asset' });
   } finally {
@@ -218,8 +231,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
+    await conn.beginTransaction();
     
-    const { category, item, product, qty, cycle, scope, remark, company, engineer, sales } = req.body;
+    const { category, item, product, qty, cycle, scope, remark, company, engineer, sales, details } = req.body;
     
     await conn.query(
       `UPDATE assets SET
@@ -236,9 +250,23 @@ router.put('/:id', authenticateToken, async (req, res) => {
         req.params.id
       ]
     );
+
+    await conn.query('DELETE FROM asset_details WHERE asset_id = ?', [req.params.id]);
+    const normalizedDetails = normalizeDetails(details);
+    if (normalizedDetails.length > 0) {
+      for (const detail of normalizedDetails) {
+        await conn.query(
+          'INSERT INTO asset_details (asset_id, content, qty, unit) VALUES (?, ?, ?, ?)',
+          [req.params.id, detail.content, detail.qty, detail.unit]
+        );
+      }
+    }
+
+    await conn.commit();
     
     res.json({ message: 'Asset updated successfully' });
   } catch (error) {
+    if (conn) await conn.rollback();
     console.error('Error updating asset:', error);
     res.status(500).json({ error: 'Failed to update asset' });
   } finally {

@@ -19,6 +19,68 @@ function convertBigInt(obj) {
   return obj;
 }
 
+function normalizeDetails(details) {
+  if (!Array.isArray(details)) return [];
+  return details
+    .map((detail) => ({
+      content: String(detail?.content || '').trim(),
+      qty: String(detail?.qty || '').trim(),
+      unit: String(detail?.unit || '').trim() || 'ea'
+    }))
+    .filter((detail) => detail.content || detail.qty);
+}
+
+async function fetchDetailsMap(conn, assetIds) {
+  if (!Array.isArray(assetIds) || assetIds.length === 0) return new Map();
+  const placeholders = assetIds.map(() => '?').join(', ');
+  const details = await conn.query(
+    `SELECT asset_id, content, qty, unit
+     FROM asset_details
+     WHERE asset_id IN (${placeholders})
+     ORDER BY id ASC`,
+    assetIds
+  );
+
+  const map = new Map();
+  for (const detail of details) {
+    const bucket = map.get(detail.asset_id) || [];
+    bucket.push({
+      content: detail.content || '',
+      qty: detail.qty || '',
+      unit: detail.unit || 'ea'
+    });
+    map.set(detail.asset_id, bucket);
+  }
+  return map;
+}
+
+function formatAsset(asset, detailsMap) {
+  return {
+    ...asset,
+    engineer: {
+      main: {
+        name: asset.engineer_main_name,
+        rank: asset.engineer_main_rank,
+        phone: asset.engineer_main_phone,
+        email: asset.engineer_main_email
+      },
+      sub: {
+        name: asset.engineer_sub_name,
+        rank: asset.engineer_sub_rank,
+        phone: asset.engineer_sub_phone,
+        email: asset.engineer_sub_email
+      }
+    },
+    sales: {
+      name: asset.sales_name,
+      rank: asset.sales_rank,
+      phone: asset.sales_phone,
+      email: asset.sales_email
+    },
+    details: detailsMap.get(asset.id) || []
+  };
+}
+
 // List contracts (auth required)
 router.get('/', authenticateToken, async (req, res) => {
   let conn;
@@ -68,32 +130,11 @@ router.get('/', authenticateToken, async (req, res) => {
     
     const contracts = await conn.query(query, params);
     
-    // Load assets for each contract
-    for (let contract of contracts) {
+    // Load assets/details for each contract
+    for (const contract of contracts) {
       const assets = await conn.query('SELECT * FROM assets WHERE contract_id = ?', [contract.id]);
-      contract.items = convertBigInt(assets.map(asset => ({
-        ...asset,
-        engineer: {
-          main: {
-            name: asset.engineer_main_name,
-            rank: asset.engineer_main_rank,
-            phone: asset.engineer_main_phone,
-            email: asset.engineer_main_email
-          },
-          sub: {
-            name: asset.engineer_sub_name,
-            rank: asset.engineer_sub_rank,
-            phone: asset.engineer_sub_phone,
-            email: asset.engineer_sub_email
-          }
-        },
-        sales: {
-          name: asset.sales_name,
-          rank: asset.sales_rank,
-          phone: asset.sales_phone,
-          email: asset.sales_email
-        }
-      })));
+      const detailsMap = await fetchDetailsMap(conn, assets.map((asset) => asset.id));
+      contract.items = convertBigInt(assets.map((asset) => formatAsset(asset, detailsMap)));
     }
     
     res.json(convertBigInt({ contracts, total, page: parseInt(page), limit: parseInt(limit) }));
@@ -117,29 +158,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     
     const assets = await conn.query('SELECT * FROM assets WHERE contract_id = ?', [contract.id]);
-    contract.items = assets.map(asset => ({
-      ...asset,
-      engineer: {
-        main: {
-          name: asset.engineer_main_name,
-          rank: asset.engineer_main_rank,
-          phone: asset.engineer_main_phone,
-          email: asset.engineer_main_email
-        },
-        sub: {
-          name: asset.engineer_sub_name,
-          rank: asset.engineer_sub_rank,
-          phone: asset.engineer_sub_phone,
-          email: asset.engineer_sub_email
-        }
-      },
-      sales: {
-        name: asset.sales_name,
-        rank: asset.sales_rank,
-        phone: asset.sales_phone,
-        email: asset.sales_email
-      }
-    }));
+    const detailsMap = await fetchDetailsMap(conn, assets.map((asset) => asset.id));
+    contract.items = assets.map((asset) => formatAsset(asset, detailsMap));
     
     res.json(convertBigInt(contract));
   } catch (error) {
@@ -169,7 +189,7 @@ router.post('/', authenticateToken, async (req, res) => {
     // Create child assets
     if (items && items.length > 0) {
       for (const item of items) {
-        await conn.query(
+        const insertAssetResult = await conn.query(
           `INSERT INTO assets (
             contract_id, category, item, product, qty, cycle, scope, remark, company,
             engineer_main_name, engineer_main_rank, engineer_main_phone, engineer_main_email,
@@ -186,6 +206,16 @@ router.post('/', authenticateToken, async (req, res) => {
             item.sales?.name, item.sales?.rank, item.sales?.phone, item.sales?.email
           ]
         );
+
+        const normalizedDetails = normalizeDetails(item.details);
+        if (normalizedDetails.length > 0) {
+          for (const detail of normalizedDetails) {
+            await conn.query(
+              'INSERT INTO asset_details (asset_id, content, qty, unit) VALUES (?, ?, ?, ?)',
+              [insertAssetResult.insertId, detail.content, detail.qty, detail.unit]
+            );
+          }
+        }
       }
     }
     
@@ -220,7 +250,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     if (items && items.length > 0) {
       for (const item of items) {
-        await conn.query(
+        const insertAssetResult = await conn.query(
           `INSERT INTO assets (
             contract_id, category, item, product, qty, cycle, scope, remark, company,
             engineer_main_name, engineer_main_rank, engineer_main_phone, engineer_main_email,
@@ -237,6 +267,16 @@ router.put('/:id', authenticateToken, async (req, res) => {
             item.sales?.name, item.sales?.rank, item.sales?.phone, item.sales?.email
           ]
         );
+
+        const normalizedDetails = normalizeDetails(item.details);
+        if (normalizedDetails.length > 0) {
+          for (const detail of normalizedDetails) {
+            await conn.query(
+              'INSERT INTO asset_details (asset_id, content, qty, unit) VALUES (?, ?, ?, ?)',
+              [insertAssetResult.insertId, detail.content, detail.qty, detail.unit]
+            );
+          }
+        }
       }
     }
     

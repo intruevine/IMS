@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>디자인 샘플 A: Clean</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50">
+
+    <div class="p-8 min-h-screen">
+        <!-- Header -->
+        <div class="max-w-7xl mx-auto">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-900">계약 관리 (Sample A: Clean)</h1>
+                    <p class="text-slate-500 mt-2">카드 기반의 깔끔하고 정돈된 레이아웃 샘플입니다.</p>
+                </div>
+                <button class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-600/90 h-11 rounded-md px-8 shadow-lg shadow-blue-500/20 hover:shadow-xl transition-shadow">
+                    + 새 계약
+                </button>
+            </div>
+
+            <!-- Contract List -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Card 1: Active -->
+                <div class="rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 p-6 flex flex-col h-full">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-sky-100 text-sky-800 border-sky-200">
+                                유지보수
+                            </span>
+                            <span class="whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-blue-100 text-blue-800">
+                                진행중
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 truncate mb-1">본사 ERP 시스템 고도화</h3>
+                        <p class="text-sm text-slate-500">대기업A</p>
+                    </div>
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span>진행률 75%</span>
+                            <span>2026-02-28 만료</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-blue-500" style="width: 75%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Expiring -->
+                <div class="rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 p-6 flex flex-col h-full">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-indigo-100 text-indigo-800 border-indigo-200">
+                                구축
+                            </span>
+                            <span class="whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-amber-100 text-amber-800">
+                                만료예정
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 truncate mb-1">모바일 앱 v2.0 개발</h3>
+                        <p class="text-sm text-slate-500">스타트업B</p>
+                    </div>
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span>진행률 80%</span>
+                            <span>2025-04-30 만료</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-amber-500" style="width: 80%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Expired -->
+                <div class="rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 p-6 flex flex-col h-full">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-indigo-100 text-indigo-800 border-indigo-200">
+                                구축
+                            </span>
+                            <span class="whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-slate-100 text-slate-800">
+                                만료
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 truncate mb-1">클라우드 인프라 마이그레이션</h3>
+                        <p class="text-sm text-slate-500">중견기업C</p>
+                    </div>
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span>진행률 100%</span>
+                            <span>2025-01-14 만료</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-slate-400" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Active -->
+                <div class="rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 p-6 flex flex-col h-full">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full border bg-sky-100 text-sky-800 border-sky-200">
+                                유지보수
+                            </span>
+                            <span class="whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-blue-100 text-blue-800">
+                                진행중
+                            </span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 truncate mb-1">그룹웨어 보안 강화 컨설팅</h3>
+                        <p class="text-sm text-slate-500">금융사D</p>
+                    </div>
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span>진행률 15%</span>
+                            <span>2025-03-31 만료</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full bg-blue-500" style="width: 15%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

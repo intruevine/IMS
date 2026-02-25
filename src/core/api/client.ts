@@ -1,8 +1,17 @@
 // API 기본 URL 설정
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api')
-).replace(/\/+$/, '');
+const configuredApiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
+const appScopedApiBase =
+  appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
+
+const API_BASE_URL_CANDIDATES = Array.from(
+  new Set(
+    [configuredApiBase || fallbackApiBase, appScopedApiBase, '/api']
+      .filter(Boolean)
+      .map((url) => String(url).replace(/\/+$/, ''))
+  )
+);
 const AUTH_TOKEN_KEY = 'ims-auth-token';
 
 class APIError extends Error {
@@ -32,47 +41,70 @@ export function clearAuthToken() {
 }
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options?.headers as Record<string, string> | undefined),
+    ...(options?.headers as Record<string, string> | undefined)
   };
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let lastError: unknown = null;
 
-  if (!response.ok) {
-    const responseText = await response.text().catch(() => '');
-    let parsedError: any = null;
+  for (let i = 0; i < API_BASE_URL_CANDIDATES.length; i += 1) {
+    const apiBase = API_BASE_URL_CANDIDATES[i];
+    const url = `${apiBase}${endpoint}`;
+
     try {
-      parsedError = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      parsedError = null;
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text().catch(() => '');
+        let parsedError: any = null;
+        try {
+          parsedError = responseText ? JSON.parse(responseText) : null;
+        } catch {
+          parsedError = null;
+        }
+
+        const messageFromJson = parsedError?.error || parsedError?.message || parsedError?.detail;
+        const messageFromText = responseText ? responseText.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+        const errorMessage = messageFromJson || messageFromText || `HTTP ${response.status} ${response.statusText || ''}`.trim();
+        const apiError = new APIError(errorMessage, response.status);
+
+        // Try another base URL only when endpoint is not found.
+        if (response.status === 404 && i < API_BASE_URL_CANDIDATES.length - 1) {
+          lastError = apiError;
+          continue;
+        }
+        throw apiError;
+      }
+
+      try {
+        return await response.json();
+      } catch (jsonError) {
+        // Some deployments rewrite unknown API paths to index.html (200 text/html).
+        // In that case, retry with the next candidate base URL.
+        if (i < API_BASE_URL_CANDIDATES.length - 1) {
+          lastError = jsonError;
+          continue;
+        }
+        throw jsonError;
+      }
+    } catch (error) {
+      lastError = error;
+      // Network-level failure can happen if /api and /MA/api mapping differs by deployment.
+      const isNetworkFailure = error instanceof TypeError;
+      if (isNetworkFailure && i < API_BASE_URL_CANDIDATES.length - 1) {
+        continue;
+      }
+      throw error;
     }
-
-    const messageFromJson =
-      parsedError?.error ||
-      parsedError?.message ||
-      parsedError?.detail;
-    const messageFromText = responseText
-      ? responseText.replace(/\s+/g, ' ').trim().slice(0, 200)
-      : '';
-
-    const errorMessage =
-      messageFromJson ||
-      messageFromText ||
-      `HTTP ${response.status} ${response.statusText || ''}`.trim();
-
-    throw new APIError(errorMessage, response.status);
   }
 
-  return response.json();
+  throw lastError instanceof Error ? lastError : new APIError('API request failed', 500);
 }
 
 // 怨꾩빟 API

@@ -362,7 +362,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
           <div className="space-y-2 mb-4">
             {(formData.details || []).map((detail, idx) => (
-              <div key={`detail-${idx}-${detail.content.substring(0, 10)}`} className="flex gap-2 items-center">
+              <div key={`detail-${idx}`} className="flex gap-2 items-center">
                 <Input
                   value={detail.content}
                   onChange={(e) => handleDetailChange(idx, 'content', e.target.value)}

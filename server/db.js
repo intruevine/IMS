@@ -25,7 +25,7 @@ async function initDatabase() {
         username VARCHAR(50) PRIMARY KEY,
         display_name VARCHAR(100) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'user') DEFAULT 'user',
+        role ENUM('admin', 'manager', 'user') DEFAULT 'user',
         approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'approved',
         approved_at TIMESTAMP NULL,
         approved_by VARCHAR(50) NULL,
@@ -36,6 +36,7 @@ async function initDatabase() {
     await conn.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'approved' AFTER role");
     await conn.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL AFTER approval_status');
     await conn.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by VARCHAR(50) NULL AFTER approved_at');
+    await conn.query("ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'manager', 'user') DEFAULT 'user'");
     
     await conn.query(`
       CREATE TABLE IF NOT EXISTS contracts (

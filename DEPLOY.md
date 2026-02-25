@@ -116,6 +116,25 @@ server {
     root /web_packages/MA;
     index index.html;
 
+    # Backend API reverse proxy (Express: 127.0.0.1:3001)
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Ensure /MA path is served by SPA entrypoint
+    location /MA/ {
+        try_files $uri $uri/ /MA/index.html;
+    }
+
+    location = /MA {
+        return 301 /MA/;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
