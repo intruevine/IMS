@@ -1,4 +1,4 @@
-﻿// API ?대씪?댁뼵??- 諛깆뿏???쒕쾭 ?곕룞
+// API 기본 URL 설정
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:3001/api' : '/api')
@@ -48,8 +48,28 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new APIError(error.error || `HTTP ${response.status}`, response.status);
+    const responseText = await response.text().catch(() => '');
+    let parsedError: any = null;
+    try {
+      parsedError = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      parsedError = null;
+    }
+
+    const messageFromJson =
+      parsedError?.error ||
+      parsedError?.message ||
+      parsedError?.detail;
+    const messageFromText = responseText
+      ? responseText.replace(/\s+/g, ' ').trim().slice(0, 200)
+      : '';
+
+    const errorMessage =
+      messageFromJson ||
+      messageFromText ||
+      `HTTP ${response.status} ${response.statusText || ''}`.trim();
+
+    throw new APIError(errorMessage, response.status);
   }
 
   return response.json();
@@ -85,7 +105,7 @@ export const contractsAPI = {
   }),
 };
 
-// ?먯궛 API
+// 자산 API
 export const assetsAPI = {
   getAll: (params?: { category?: string; search?: string; cycle?: string; page?: number; limit?: number }) => {
     const queryParams = new URLSearchParams();
@@ -118,7 +138,7 @@ export const assetsAPI = {
   }),
 };
 
-// ?ъ슜??API
+// 사용자 API
 export const usersAPI = {
   login: (username: string, password: string) => fetchAPI<{ user: any; token: string; message: string }>('/users/login', {
     method: 'POST',
@@ -140,7 +160,7 @@ export const usersAPI = {
     body: JSON.stringify(data),
   }),
 
-  approve: (username: string, role: 'admin' | 'user' = 'user') =>
+  approve: (username: string, role: 'admin' | 'manager' | 'user' = 'user') =>
     fetchAPI<{ message: string }>(`/users/${username}/approve`, {
       method: 'PUT',
       body: JSON.stringify({ role }),
@@ -166,7 +186,7 @@ export const usersAPI = {
   }),
 };
 
-// ?대깽??API
+// 이벤트 API
 export const eventsAPI = {
   getAll: (params?: { start?: string; end?: string; type?: string }) => {
     const queryParams = new URLSearchParams();
@@ -204,7 +224,7 @@ export const eventsAPI = {
   }),
 };
 
-// 硫ㅻ쾭 API
+// 프로젝트 멤버 API
 export const membersAPI = {
   getAll: (params?: { contract_id?: number; status?: string }) => {
     const queryParams = new URLSearchParams();

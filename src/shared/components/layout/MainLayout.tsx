@@ -17,9 +17,10 @@ const publicMenuItems: MenuItem[] = [
   { path: '/assets', label: '자산 조회', icon: 'assets' },
   { path: '/project-members', label: '프로젝트 현황', icon: 'members' },
   { path: '/calendar', label: '일정 관리', icon: 'calendar' },
-  { path: '/reports', label: '보고서', icon: 'reports' },
-  { path: '/api-test', label: 'API 테스트', icon: 'api' }
+  { path: '/reports', label: '보고서', icon: 'reports' }
 ];
+
+const apiTestMenuItem: MenuItem = { path: '/api-test', label: 'API 테스트', icon: 'api' };
 
 const adminMenuItems: MenuItem[] = [{ path: '/settings', label: '설정', icon: 'settings' }];
 
@@ -90,6 +91,13 @@ const MainLayout: React.FC = () => {
   const logout = useAppStore((state) => state.logout);
   const showToast = useAppStore((state) => state.showToast);
 
+  const roleLabel =
+    role === 'admin'
+      ? '관리자'
+      : role === 'manager'
+      ? '중간 관리자'
+      : '일반 사용자';
+
   useEffect(() => {
     const checkScreenSize = () => setIsMobile(window.innerWidth < 900);
     checkScreenSize();
@@ -101,7 +109,12 @@ const MainLayout: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  const menuItems = role === 'admin' ? [...publicMenuItems, ...adminMenuItems] : publicMenuItems;
+  const hasApiAccess = role === 'admin' || role === 'manager';
+  const menuItems = [
+    ...publicMenuItems,
+    ...(role === 'admin' ? adminMenuItems : []),
+    ...(hasApiAccess ? [apiTestMenuItem] : [])
+  ];
 
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
@@ -173,7 +186,7 @@ const MainLayout: React.FC = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-slate-900 text-sm truncate">{user?.display_name || '사용자'}</p>
-                <p className="text-xs text-slate-500">{role === 'admin' ? '관리자' : '일반 사용자'}</p>
+                <p className="text-xs text-slate-500">{roleLabel}</p>
               </div>
               <button
                 onClick={() => setIsLogoutConfirmOpen(true)}
@@ -209,7 +222,7 @@ const MainLayout: React.FC = () => {
                 </div>
                 <div>
                   <p className="font-bold text-slate-900">{user?.display_name || '사용자'}</p>
-                  <p className="text-xs text-slate-500">{role === 'admin' ? '관리자' : '일반 사용자'}</p>
+                  <p className="text-xs text-slate-500">{roleLabel}</p>
                 </div>
               </div>
             </div>

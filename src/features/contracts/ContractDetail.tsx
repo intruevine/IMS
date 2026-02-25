@@ -19,18 +19,20 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
 }) => {
   const deleteAsset = useAppStore((state) => state.deleteAsset);
   const showToast = useAppStore((state) => state.showToast);
+  const currentContract = useAppStore((state) => state.currentContract);
+  const displayContract = currentContract?.id === contract.id ? currentContract : contract;
   
   const [selectedAsset, setSelectedAsset] = useState<AssetItem | null>(null);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isDeleteAssetModalOpen, setIsDeleteAssetModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'assets'>('info');
 
-  const status = getContractStatus(contract.end_date);
-  const progress = calculateProgress(contract.start_date, contract.end_date);
+  const status = getContractStatus(displayContract.end_date);
+  const progress = calculateProgress(displayContract.start_date, displayContract.end_date);
 
   const handleDeleteAsset = async () => {
     if (selectedAsset) {
-      await deleteAsset(contract.id, selectedAsset.id);
+      await deleteAsset(displayContract.id, selectedAsset.id);
       setIsDeleteAssetModalOpen(false);
       setSelectedAsset(null);
       showToast('자산이 삭제되었습니다', 'success');
@@ -51,9 +53,9 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <StatusBadge status={status} />
-              <span className="text-xs text-slate-500">ID: {String(contract.id).padStart(4, '0')}</span>
+              <span className="text-xs text-slate-500">ID: {String(displayContract.id).padStart(4, '0')}</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900">{contract.project_title}</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900">{displayContract.project_title}</h1>
           </div>
         </div>
         <div className="flex gap-2">
@@ -89,7 +91,7 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          자산 목록 ({contract.items.length})
+          자산 목록 ({displayContract.items.length})
         </button>
       </div>
 
@@ -103,26 +105,26 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-xs font-bold text-slate-400 uppercase">고객사명</span>
-                  <p className="text-sm font-medium text-slate-900 mt-1">{contract.customer_name}</p>
+                  <p className="text-sm font-medium text-slate-900 mt-1">{displayContract.customer_name}</p>
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-400 uppercase">프로젝트명</span>
-                  <p className="text-sm font-medium text-slate-900 mt-1">{contract.project_title}</p>
+                  <p className="text-sm font-medium text-slate-900 mt-1">{displayContract.project_title}</p>
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-400 uppercase">시작일</span>
-                  <p className="text-sm font-medium text-slate-900 mt-1">{contract.start_date}</p>
+                  <p className="text-sm font-medium text-slate-900 mt-1">{displayContract.start_date}</p>
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-400 uppercase">종료일</span>
-                  <p className="text-sm font-medium text-slate-900 mt-1">{contract.end_date}</p>
+                  <p className="text-sm font-medium text-slate-900 mt-1">{displayContract.end_date}</p>
                 </div>
               </div>
               
-              {contract.notes && (
+              {displayContract.notes && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
                   <span className="text-xs font-bold text-slate-400 uppercase">비고</span>
-                  <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{contract.notes}</p>
+                  <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">{displayContract.notes}</p>
                 </div>
               )}
             </Card>
@@ -147,8 +149,8 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                   />
                 </div>
                 <div className="flex justify-between text-xs text-slate-400 mt-2">
-                  <span>{contract.start_date}</span>
-                  <span>{contract.end_date}</span>
+                  <span>{displayContract.start_date}</span>
+                  <span>{displayContract.end_date}</span>
                 </div>
               </div>
             </Card>
@@ -165,7 +167,7 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                     <span className="text-sm font-medium text-slate-700">하드웨어 (HW)</span>
                   </div>
                   <span className="text-lg font-bold text-slate-900">
-                    {contract.items.filter(i => i.category === 'HW').length}
+                    {displayContract.items.filter(i => i.category === 'HW').length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -174,12 +176,12 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                     <span className="text-sm font-medium text-slate-700">소프트웨어 (SW)</span>
                   </div>
                   <span className="text-lg font-bold text-slate-900">
-                    {contract.items.filter(i => i.category === 'SW').length}
+                    {displayContract.items.filter(i => i.category === 'SW').length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-primary-50 rounded-lg border border-primary-100">
                   <span className="text-sm font-medium text-primary-700">총 자산 수</span>
-                  <span className="text-lg font-bold text-primary-900">{contract.items.length}</span>
+                  <span className="text-lg font-bold text-primary-900">{displayContract.items.length}</span>
                 </div>
               </div>
             </Card>
@@ -189,15 +191,15 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">생성일</span>
-                  <span className="text-slate-900">{contract.created_at || '-'}</span>
+                  <span className="text-slate-900">{displayContract.created_at || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">수정일</span>
-                  <span className="text-slate-900">{contract.updated_at || '-'}</span>
+                  <span className="text-slate-900">{displayContract.updated_at || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">생성자</span>
-                  <span className="text-slate-900">{contract.created_by || '-'}</span>
+                  <span className="text-slate-900">{displayContract.created_by || '-'}</span>
                 </div>
               </div>
             </Card>
@@ -220,9 +222,9 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
             </Button>
           </div>
 
-          {contract.items.length > 0 ? (
+          {displayContract.items.length > 0 ? (
             <div className="space-y-3">
-              {contract.items.map((asset, index) => (
+              {displayContract.items.map((asset, index) => (
                 <motion.div
                   key={asset.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -323,7 +325,7 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
           setIsAssetModalOpen(false);
           setSelectedAsset(null);
         }}
-        contractId={contract.id}
+        contractId={displayContract.id}
         asset={selectedAsset}
       />
 

@@ -12,7 +12,6 @@ interface AssetWithContract extends AssetItem {
 
 const AssetsPage: React.FC = () => {
   const assets = useAppStore((state) => state.assets);
-  const totalAssets = useAppStore((state) => state.totalAssets);
   const loadAssets = useAppStore((state) => state.loadAssets);
   const assetFilter = useAppStore((state) => state.assetFilter);
   const assetSearchText = useAppStore((state) => state.assetSearchText);
@@ -30,12 +29,22 @@ const AssetsPage: React.FC = () => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetWithContract | null>(null);
-  const [selectedContractId, setSelectedContractId] = useState<number | 'all'>('all');
+  const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
 
   useEffect(() => {
     loadAssets();
     loadContracts();
   }, [loadAssets, loadContracts]);
+
+  useEffect(() => {
+    if (contracts.length === 0) {
+      setSelectedContractId(null);
+      return;
+    }
+    if (!selectedContractId || !contracts.some((contract) => contract.id === selectedContractId)) {
+      setSelectedContractId(contracts[0].id);
+    }
+  }, [contracts, selectedContractId]);
 
   const handleDelete = async () => {
     if (selectedAsset) {
@@ -60,15 +69,15 @@ const AssetsPage: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
+  const contractAssets = selectedContractId ? assets.filter((asset) => asset.contractId === selectedContractId) : [];
   const tabs: { key: 'all' | AssetCategory; label: string; count: number; icon: string }[] = [
-    { key: 'all', label: '전체', count: totalAssets, icon: '📦' },
-    { key: 'HW', label: '하드웨어', count: assets.filter(a => a.category === 'HW').length, icon: '💻' },
-    { key: 'SW', label: '소프트웨어', count: assets.filter(a => a.category === 'SW').length, icon: '💿' },
+    { key: 'all', label: '전체', count: contractAssets.length, icon: '📦' },
+    { key: 'HW', label: '하드웨어', count: contractAssets.filter((asset) => asset.category === 'HW').length, icon: '💻' },
+    { key: 'SW', label: '소프트웨어', count: contractAssets.filter((asset) => asset.category === 'SW').length, icon: '💿' }
   ];
 
-  const filteredAssets = selectedContractId === 'all' 
-    ? assets 
-    : assets.filter(a => a.contractId === selectedContractId);
+  const filteredAssets =
+    assetFilter === 'all' ? contractAssets : contractAssets.filter((asset) => asset.category === assetFilter);
 
   const totalPages = Math.ceil(filteredAssets.length / assetItemsPerPage);
 
@@ -79,7 +88,7 @@ const AssetsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">자산 관리</h1>
           <p className="text-slate-500 mt-1">
-            {isAdmin ? '모든 자산 정보 조회 및 관리' : '모든 자산 정보 조회'}
+            {isAdmin ? '계약 건별 자산 정보 조회 및 관리' : '계약 건별 자산 정보 조회'}
           </p>
         </div>
         {isAdmin && (
@@ -107,11 +116,11 @@ const AssetsPage: React.FC = () => {
           
           <div className="md:w-72 relative">
             <select
-              value={selectedContractId}
-              onChange={(e) => setSelectedContractId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              value={selectedContractId ?? ''}
+              onChange={(e) => setSelectedContractId(Number(e.target.value))}
               className="w-full rounded-lg border border-slate-200 pl-10 pr-8 py-2.5 text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none appearance-none"
             >
-              <option value="all">모든 계약</option>
+              {contracts.length === 0 && <option value="">계약 없음</option>}
               {contracts.map(contract => (
                 <option key={contract.id} value={contract.id}>
                   {contract.customer_name} - {contract.project_title}
@@ -189,15 +198,14 @@ const AssetsPage: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-1 min-w-[180px] p-3 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="text-sm">
-                    <span className="text-slate-400">Main: </span>
-                    <span className="font-medium text-slate-700">{asset.engineer?.main?.name || '-'}</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-slate-400">Sub: </span>
-                    <span className="font-medium text-slate-700">{asset.engineer?.sub?.name || '-'}</span>
-                  </div>
+                <div className="min-w-[300px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="truncate text-sm text-slate-700">
+                    <span className="font-semibold text-blue-600">Main</span>{' '}
+                    {asset.engineer?.main?.name || '-'} ({asset.engineer?.main?.phone || '-'})
+                    <span className="mx-2 text-slate-300">|</span>
+                    <span className="font-semibold text-emerald-600">Sub</span>{' '}
+                    {asset.engineer?.sub?.name || '-'} ({asset.engineer?.sub?.phone || '-'})
+                  </p>
                 </div>
 
                 {isAdmin && (
@@ -234,19 +242,19 @@ const AssetsPage: React.FC = () => {
           <Card className="text-center py-12">
             <div className="text-4xl mb-3">📭</div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {selectedContractId === 'all' ? '등록된 자산이 없습니다' : '선택한 계약에 자산이 없습니다'}
+              {selectedContractId ? '선택한 계약에 자산이 없습니다' : '계약을 먼저 선택해주세요'}
             </h3>
             <p className="text-slate-500 mb-4">
-              {selectedContractId === 'all' 
-                ? '자산을 등록하거나 다른 검색어를 입력해보세요.' 
-                : '다른 계약을 선택하거나 자산을 등록해보세요.'}
+              {selectedContractId
+                ? '다른 계약을 선택하거나 자산을 등록해보세요.'
+                : '계약을 선택하면 해당 계약의 자산만 조회됩니다.'}
             </p>
             <Button 
               variant="primary"
               onClick={() => {
                 setAssetSearchText('');
                 setAssetFilter('all');
-                setSelectedContractId('all');
+                setSelectedContractId(contracts[0]?.id ?? null);
               }}
             >
               필터 초기화

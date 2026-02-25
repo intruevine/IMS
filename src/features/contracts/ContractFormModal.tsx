@@ -31,14 +31,20 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const toDateInputValue = (value?: string) => {
+    if (!value) return '';
+    // Keep only date part for <input type="date"> compatibility.
+    return value.slice(0, 10);
+  };
+
   useEffect(() => {
     if (contract) {
       setFormData({
         customer_name: contract.customer_name,
         project_title: contract.project_title,
         project_type: contract.project_type,
-        start_date: contract.start_date,
-        end_date: contract.end_date,
+        start_date: toDateInputValue(contract.start_date),
+        end_date: toDateInputValue(contract.end_date),
         notes: contract.notes || '',
         items: contract.items || []
       });

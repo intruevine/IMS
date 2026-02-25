@@ -166,14 +166,14 @@ router.post('/', authenticateToken, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const { username, display_name, password, role = 'user' } = req.body;
-    const normalizedRole = String(role || 'user').trim();
+  const { username, display_name, password, role = 'user' } = req.body;
+  const normalizedRole = String(role || 'user').trim();
 
     if (!username || !display_name || !password) {
       return res.status(400).json({ error: 'username, display_name and password are required' });
     }
-    if (!['admin', 'user'].includes(normalizedRole)) {
-      return res.status(400).json({ error: 'role must be admin or user' });
+    if (!['admin', 'manager', 'user'].includes(normalizedRole)) {
+      return res.status(400).json({ error: 'role must be admin, manager, or user' });
     }
 
     const [existing] = await conn.query('SELECT 1 FROM users WHERE username = ?', [username]);
@@ -203,11 +203,11 @@ router.put('/:username/approve', authenticateToken, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const { role = 'user' } = req.body || {};
-    const normalizedRole = String(role || 'user').trim();
-    if (!['admin', 'user'].includes(normalizedRole)) {
-      return res.status(400).json({ error: 'role must be admin or user' });
-    }
+      const { role = 'user' } = req.body || {};
+      const normalizedRole = String(role || 'user').trim();
+      if (!['admin', 'manager', 'user'].includes(normalizedRole)) {
+        return res.status(400).json({ error: 'role must be admin or user' });
+      }
 
     await conn.query(
       `UPDATE users
@@ -259,7 +259,7 @@ router.put('/:username', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'display_name and role are required' });
     }
     if (!['admin', 'user'].includes(normalizedRole)) {
-      return res.status(400).json({ error: 'role must be admin or user' });
+      return res.status(400).json({ error: 'role must be admin, manager, or user' });
     }
 
     await conn.query(

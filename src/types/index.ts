@@ -3,7 +3,7 @@
 // ============================================
 
 /** User role */
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'manager' | 'user';
 
 /** Contract status */
 export type ContractStatus = 'active' | 'expiring' | 'expired' | 'unknown';

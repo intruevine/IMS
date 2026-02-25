@@ -462,8 +462,7 @@ const SettingsPage: React.FC = () => {
                             }))
                           }
                         >
-                          <option value="user">user</option>
-                          <option value="admin">admin</option>
+                          <option value="user">user</option>\n                          <option value="manager">manager</option>\n                          <option value="admin">admin</option>
                         </select>
                       </td>
                       <td className="px-4 py-3">{formatDateSafe(u.created_at)}</td>
@@ -640,8 +639,7 @@ const SettingsPage: React.FC = () => {
               value={editRole}
               onChange={(e) => setEditRole(e.target.value as UserRole)}
             >
-              <option value="user">user</option>
-              <option value="admin">admin</option>
+              <option value="user">user</option>\n                          <option value="manager">manager</option>\n                          <option value="admin">admin</option>
             </select>
           </div>
           <Input
@@ -668,3 +666,4 @@ const SettingsPage: React.FC = () => {
 };
 
 export default SettingsPage;
+

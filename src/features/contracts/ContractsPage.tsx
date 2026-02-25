@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { Card, Button, StatusBadge, ConfirmModal, Modal } from '@/shared/components/ui';
 import { ContractFormModal } from './ContractFormModal';
@@ -16,7 +16,7 @@ const ContractsPage: React.FC = () => {
   const filter = useAppStore((state) => state.filter);
   const searchText = useAppStore((state) => state.searchText);
   const role = useAppStore((state) => state.role);
-  const isAdmin = role === 'admin';
+  const canManageContracts = role === 'admin' || role === 'manager';
   const [projectTypeFilter, setProjectTypeFilter] = useState<'all' | 'maintenance' | 'construction'>('all');
   
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -53,7 +53,7 @@ const ContractsPage: React.FC = () => {
 
   const handleExportExcel = () => {
     exportToExcel(contracts);
-    showToast('Excel 파일이 저장되었습니다', 'success');
+    showToast('Excel 내보내기가 완료되었습니다.', 'success');
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +65,7 @@ const ContractsPage: React.FC = () => {
       setImportPreview(importedContracts);
       setIsImportModalOpen(true);
     } catch (error) {
-      showToast('파일을 읽는 중 오류가 발생했습니다', 'error');
+      showToast('Excel 파일을 읽는 중 오류가 발생했습니다.', 'error');
     }
   };
 
@@ -74,20 +74,35 @@ const ContractsPage: React.FC = () => {
       for (const contract of importPreview) {
         await createContract(contract);
       }
-      showToast(`${importPreview.length}개의 계약이 가져와졌습니다`, 'success');
+      showToast(`${importPreview.length}건의 계약이 생성되었습니다.`, 'success');
       setIsImportModalOpen(false);
       setImportPreview([]);
       loadContracts();
     } catch (error) {
-      showToast('가져오기 중 오류가 발생했습니다', 'error');
+      showToast('계약 생성 중 오류가 발생했습니다.', 'error');
     }
   };
 
   const tabs: { key: FilterStatus; label: string; count: number; color: string }[] = [
     { key: 'all', label: '전체', count: contracts.length, color: 'bg-slate-500' },
-    { key: 'active', label: '진행중', count: contracts.filter(c => getContractStatus(c.end_date) === 'active').length, color: 'bg-green-500' },
-    { key: 'expiring', label: '만료임박', count: contracts.filter(c => getContractStatus(c.end_date) === 'expiring').length, color: 'bg-amber-500' },
-    { key: 'expired', label: '만료', count: contracts.filter(c => getContractStatus(c.end_date) === 'expired').length, color: 'bg-red-500' },
+    {
+      key: 'active',
+      label: '진행 중',
+      count: contracts.filter((c) => getContractStatus(c.end_date) === 'active').length,
+      color: 'bg-green-500'
+    },
+    {
+      key: 'expiring',
+      label: '만료 예정',
+      count: contracts.filter((c) => getContractStatus(c.end_date) === 'expiring').length,
+      color: 'bg-amber-500'
+    },
+    {
+      key: 'expired',
+      label: '만료',
+      count: contracts.filter((c) => getContractStatus(c.end_date) === 'expired').length,
+      color: 'bg-red-500'
+    }
   ];
 
   const filteredContracts = contracts.filter(contract => {
@@ -101,11 +116,20 @@ const ContractsPage: React.FC = () => {
 
   if (viewMode === 'detail' && selectedContract) {
     return (
-      <ContractDetail
-        contract={selectedContract}
-        onBack={handleBackToList}
-        onEdit={() => setIsFormModalOpen(true)}
-      />
+      <>
+        <ContractDetail
+          contract={selectedContract}
+          onBack={handleBackToList}
+          onEdit={() => setIsFormModalOpen(true)}
+        />
+        <ContractFormModal
+          isOpen={isFormModalOpen}
+          onClose={() => {
+            setIsFormModalOpen(false);
+          }}
+          contract={selectedContract}
+        />
+      </>
     );
   }
 
@@ -116,10 +140,10 @@ const ContractsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">계약 관리</h1>
           <p className="text-slate-500 mt-1">
-            {isAdmin ? '계약 정보 조회 및 관리' : '계약 정보 조회'}
+            {canManageContracts ? '계약 현황을 조회하고 관리합니다.' : '계약 현황을 조회합니다.'}
           </p>
         </div>
-        {isAdmin && (
+        {canManageContracts && (
           <div className="flex gap-2">
             <input
               type="file"
@@ -129,19 +153,19 @@ const ContractsPage: React.FC = () => {
               className="hidden"
             />
             <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              가져오기
+              Excel 가져오기
             </Button>
             <Button variant="secondary" onClick={handleExportExcel}>
-             보내기
+              Excel 내보내기
             </Button>
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={() => {
                 setSelectedContract(null);
                 setIsFormModalOpen(true);
               }}
             >
-              + 신규 등록
+              + 새 계약 등록
             </Button>
           </div>
         )}
@@ -155,7 +179,7 @@ const ContractsPage: React.FC = () => {
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="고객사명 또는 프로젝트명 검색..."
+              placeholder="고객사 또는 프로젝트명을 검색하세요..."
               className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none text-sm"
             />
             <svg className="w-5 h-5 text-slate-400 absolute left-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,7 +192,7 @@ const ContractsPage: React.FC = () => {
               onChange={(e) => setProjectTypeFilter(e.target.value as any)}
               className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
             >
-              <option value="all">모든 유형</option>
+              <option value="all">전체 유형</option>
               <option value="maintenance">유지보수</option>
               <option value="construction">구축</option>
             </select>
@@ -224,13 +248,15 @@ const ContractsPage: React.FC = () => {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded border ${
                         contract.project_type === 'maintenance'
                           ? 'bg-blue-100 text-blue-700 border-blue-200'
                           : 'bg-purple-100 text-purple-700 border-purple-200'
-                      }`}>
-                        {contract.project_type === 'maintenance' ? '유지보수' : '구축'}
-                      </span>
+                      }`}
+                    >
+                      {contract.project_type === 'maintenance' ? '유지보수' : '구축'}
+                    </span>
                       <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                         {contract.customer_name}
                       </span>
@@ -254,7 +280,7 @@ const ContractsPage: React.FC = () => {
                         />
                       </div>
                     </div>
-                    {isAdmin && (
+                    {canManageContracts && (
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -293,9 +319,9 @@ const ContractsPage: React.FC = () => {
           })
         ) : (
           <Card className="text-center py-12">
-            <div className="text-4xl mb-3">📭</div>
+            <div className="text-4xl mb-3">계약이 없습니다</div>
             <p className="text-slate-500">검색 결과가 없습니다</p>
-            <Button 
+            <Button
               variant="primary"
               className="mt-4"
               onClick={() => {
@@ -303,7 +329,7 @@ const ContractsPage: React.FC = () => {
                 setFilter('all');
               }}
             >
-              필터 초기화
+              검색 초기화
             </Button>
           </Card>
         )}
@@ -315,7 +341,7 @@ const ContractsPage: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDelete}
         title="계약 삭제"
-        message={`"${selectedContract?.project_title}" 계약을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`}
+        message={`"${selectedContract?.project_title}" 계약을 삭제하시겠습니까?\n\n삭제한 계약은 복구할 수 없습니다.`}
         confirmText="삭제"
         cancelText="취소"
         variant="danger"
@@ -335,22 +361,22 @@ const ContractsPage: React.FC = () => {
       <Modal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        title="가져오기 미리보기"
+        title="Bulk Import Preview"
         size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsImportModalOpen(false)}>
-              취소
+              Cancel
             </Button>
             <Button variant="primary" onClick={handleImportConfirm}>
-              {importPreview.length}개 계약 가져오기
+              Import {importPreview.length} contracts
             </Button>
           </>
         }
       >
         <div className="max-h-[60vh] overflow-y-auto">
           <p className="text-sm text-slate-500 mb-4">
-            다음 <span className="font-semibold">{importPreview.length}개</span>의 계약을 가져옵니다:
+            Previewing <span className="font-semibold">{importPreview.length}</span> contracts before import:
           </p>
           <div className="space-y-2">
             {importPreview.map((contract, index) => (
@@ -364,7 +390,7 @@ const ContractsPage: React.FC = () => {
                     <p className="text-sm text-slate-500 truncate">{contract.project_title}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-400">자산 {contract.items.length}개</p>
+                    <p className="text-xs text-slate-400">Assets: {contract.items.length}</p>
                   </div>
                 </div>
               </Card>
@@ -377,3 +403,5 @@ const ContractsPage: React.FC = () => {
 };
 
 export default ContractsPage;
+
+
