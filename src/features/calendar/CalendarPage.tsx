@@ -367,6 +367,7 @@ const CalendarPage: React.FC = () => {
   const role = useAppStore((state) => state.role);
   const loadUsers = useAppStore((state) => state.loadUsers);
   const loadCalendarEvents = useAppStore((state) => state.loadCalendarEvents);
+  const loadAdditionalHolidays = useAppStore((state) => state.loadAdditionalHolidays);
   const deleteEvent = useAppStore((state) => state.deleteCalendarEvent);
   const generateCalendarEvents = useAppStore((state) => state.generateCalendarEventsFromData);
   const showToast = useAppStore((state) => state.showToast);
@@ -386,6 +387,10 @@ const CalendarPage: React.FC = () => {
   useEffect(() => {
     loadCalendarEvents();
   }, [loadCalendarEvents]);
+
+  useEffect(() => {
+    loadAdditionalHolidays();
+  }, [loadAdditionalHolidays]);
 
   useEffect(() => {
     if (role === 'admin') {

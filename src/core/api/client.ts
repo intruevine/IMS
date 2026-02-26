@@ -348,6 +348,27 @@ export const membersAPI = {
   }),
 };
 
+export const holidaysAPI = {
+  getAll: () => fetchAPI<any[]>('/holidays'),
+
+  create: (data: { date: string; name: string; type: 'national' | 'company' }) =>
+    fetchAPI<{ id: number; message: string }>('/holidays', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  update: (id: string, data: { date: string; name: string; type: 'national' | 'company' }) =>
+    fetchAPI<{ message: string }>(`/holidays/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
+  delete: (id: string) =>
+    fetchAPI<{ message: string }>(`/holidays/${id}`, {
+      method: 'DELETE'
+    })
+};
+
 export { APIError };
 export default {
   contracts: contractsAPI,
@@ -355,6 +376,7 @@ export default {
   users: usersAPI,
   events: eventsAPI,
   members: membersAPI,
+  holidays: holidaysAPI
 };
 
 

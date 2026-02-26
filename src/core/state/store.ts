@@ -21,6 +21,7 @@ import {
   usersAPI, 
   eventsAPI, 
   membersAPI,
+  holidaysAPI,
   APIError,
   hasAuthToken,
   setAuthToken,
@@ -151,9 +152,10 @@ interface AppState extends AuthState, UIState, ContractState, DashboardState, Ca
   updateCalendarEvent: (id: string, changes: Partial<CalendarEvent>) => Promise<void>;
   deleteCalendarEvent: (id: string) => Promise<void>;
   generateCalendarEventsFromData: () => Promise<number>;
-  addAdditionalHoliday: (holiday: Omit<AdditionalHoliday, 'id' | 'created_at' | 'updated_at'>) => void;
-  updateAdditionalHoliday: (id: string, changes: Partial<Omit<AdditionalHoliday, 'id'>>) => void;
-  deleteAdditionalHoliday: (id: string) => void;
+  loadAdditionalHolidays: () => Promise<void>;
+  addAdditionalHoliday: (holiday: Omit<AdditionalHoliday, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateAdditionalHoliday: (id: string, changes: Partial<Omit<AdditionalHoliday, 'id'>>) => Promise<void>;
+  deleteAdditionalHoliday: (id: string) => Promise<void>;
 }
 
 // ============================================
@@ -689,46 +691,68 @@ export const useAppStore = create<AppState>()(
           }
         },
 
-        addAdditionalHoliday: (holiday) => {
-          const now = new Date().toISOString();
-          const newHoliday: AdditionalHoliday = {
-            id: `holiday-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-            date: holiday.date,
-            name: holiday.name,
-            type: (holiday.type || 'company') as HolidayType,
-            created_at: now,
-            updated_at: now
-          };
-
-          set((state) => ({
-            additionalHolidays: [...state.additionalHolidays, newHoliday]
-              .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name))
-          }));
-          get().showToast('추가 공휴일이 등록되었습니다', 'success');
+        loadAdditionalHolidays: async () => {
+          try {
+            const holidays = await holidaysAPI.getAll();
+            set({
+              additionalHolidays: holidays
+                .map((holiday: any) => ({
+                  id: String(holiday.id),
+                  date: holiday.date,
+                  name: holiday.name,
+                  type: (holiday.type || 'company') as HolidayType,
+                  created_at: holiday.created_at,
+                  updated_at: holiday.updated_at
+                }))
+                .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name))
+            });
+          } catch (error) {
+            console.error('Failed to load additional holidays:', error);
+          }
         },
 
-        updateAdditionalHoliday: (id, changes) => {
-          set((state) => ({
-            additionalHolidays: state.additionalHolidays
-              .map((holiday) =>
-                holiday.id === id
-                  ? {
-                      ...holiday,
-                      ...changes,
-                      updated_at: new Date().toISOString()
-                    }
-                  : holiday
-              )
-              .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name))
-          }));
-          get().showToast('공휴일 정보가 수정되었습니다', 'success');
+        addAdditionalHoliday: async (holiday) => {
+          try {
+            await holidaysAPI.create({
+              date: holiday.date,
+              name: holiday.name,
+              type: (holiday.type || 'company') as HolidayType
+            });
+            await get().loadAdditionalHolidays();
+            get().showToast('추가 공휴일이 등록되었습니다', 'success');
+          } catch (error) {
+            console.error('Failed to add holiday:', error);
+            get().showToast('공휴일 등록 실패', 'error');
+            throw error;
+          }
         },
 
-        deleteAdditionalHoliday: (id) => {
-          set((state) => ({
-            additionalHolidays: state.additionalHolidays.filter((holiday) => holiday.id !== id)
-          }));
-          get().showToast('공휴일이 삭제되었습니다', 'success');
+        updateAdditionalHoliday: async (id, changes) => {
+          try {
+            await holidaysAPI.update(id, {
+              date: changes.date || '',
+              name: changes.name || '',
+              type: ((changes.type || 'company') as HolidayType)
+            });
+            await get().loadAdditionalHolidays();
+            get().showToast('공휴일 정보가 수정되었습니다', 'success');
+          } catch (error) {
+            console.error('Failed to update holiday:', error);
+            get().showToast('공휴일 수정 실패', 'error');
+            throw error;
+          }
+        },
+
+        deleteAdditionalHoliday: async (id) => {
+          try {
+            await holidaysAPI.delete(id);
+            await get().loadAdditionalHolidays();
+            get().showToast('공휴일이 삭제되었습니다', 'success');
+          } catch (error) {
+            console.error('Failed to delete holiday:', error);
+            get().showToast('공휴일 삭제 실패', 'error');
+            throw error;
+          }
         },
 
         // ============================================
@@ -849,8 +873,7 @@ export const useAppStore = create<AppState>()(
         partialize: (state) => ({ 
           user: state.user, 
           role: state.role, 
-          isAuthenticated: state.isAuthenticated,
-          additionalHolidays: state.additionalHolidays
+          isAuthenticated: state.isAuthenticated
         })
       }
     ),

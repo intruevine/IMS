@@ -56,12 +56,14 @@ const assetsRouter = require('./routes/assets');
 const usersRouter = require('./routes/users');
 const eventsRouter = require('./routes/events');
 const membersRouter = require('./routes/members');
+const holidaysRouter = require('./routes/holidays');
 
 app.use('/api/contracts', contractsRouter);
 app.use('/api/assets', assetsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/members', membersRouter);
+app.use('/api/holidays', holidaysRouter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -79,6 +81,7 @@ app.get('/', (req, res) => {
       contracts: '/api/contracts',
       assets: '/api/assets',
       events: '/api/events',
+      holidays: '/api/holidays',
       members: '/api/members',
       health: '/health'
     },
@@ -94,6 +97,7 @@ app.get('/api', (req, res) => {
       contracts: '/api/contracts',
       assets: '/api/assets',
       events: '/api/events',
+      holidays: '/api/holidays',
       members: '/api/members'
     }
   });

@@ -65,6 +65,7 @@ const SettingsPage: React.FC = () => {
   const updateUserPassword = useAppStore((state) => state.updateUserPassword);
   const deleteUser = useAppStore((state) => state.deleteUser);
   const additionalHolidays = useAppStore((state) => state.additionalHolidays);
+  const loadAdditionalHolidays = useAppStore((state) => state.loadAdditionalHolidays);
   const addAdditionalHoliday = useAppStore((state) => state.addAdditionalHoliday);
   const updateAdditionalHoliday = useAppStore((state) => state.updateAdditionalHoliday);
   const deleteAdditionalHoliday = useAppStore((state) => state.deleteAdditionalHoliday);
@@ -117,11 +118,12 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     loadStats();
+    loadAdditionalHolidays();
     if (isAuthenticated && role === 'admin') {
       loadUsers();
       loadPendingUsers();
     }
-  }, [isAuthenticated, role, loadUsers, loadPendingUsers]);
+  }, [isAuthenticated, role, loadUsers, loadPendingUsers, loadAdditionalHolidays]);
 
   const handleExportData = async () => {
     try {
@@ -265,7 +267,7 @@ const SettingsPage: React.FC = () => {
     setEditingHolidayId(null);
   };
 
-  const handleSaveHoliday = () => {
+  const handleSaveHoliday = async () => {
     const date = holidayForm.date.trim();
     const name = holidayForm.name.trim();
     if (!date || !name) {
@@ -273,20 +275,24 @@ const SettingsPage: React.FC = () => {
       return;
     }
 
-    if (editingHolidayId) {
-      updateAdditionalHoliday(editingHolidayId, {
-        date,
-        name,
-        type: holidayForm.type
-      });
-    } else {
-      addAdditionalHoliday({
-        date,
-        name,
-        type: holidayForm.type
-      });
+    try {
+      if (editingHolidayId) {
+        await updateAdditionalHoliday(editingHolidayId, {
+          date,
+          name,
+          type: holidayForm.type
+        });
+      } else {
+        await addAdditionalHoliday({
+          date,
+          name,
+          type: holidayForm.type
+        });
+      }
+      resetHolidayForm();
+    } catch {
+      // store handles toast
     }
-    resetHolidayForm();
   };
 
   const handleEditHoliday = (id: string) => {
@@ -300,12 +306,16 @@ const SettingsPage: React.FC = () => {
     setEditingHolidayId(target.id);
   };
 
-  const handleDeleteHoliday = (id: string, name: string) => {
+  const handleDeleteHoliday = async (id: string, name: string) => {
     const ok = window.confirm(`"${name}" 공휴일을 삭제할까요?`);
     if (!ok) return;
-    deleteAdditionalHoliday(id);
-    if (editingHolidayId === id) {
-      resetHolidayForm();
+    try {
+      await deleteAdditionalHoliday(id);
+      if (editingHolidayId === id) {
+        resetHolidayForm();
+      }
+    } catch {
+      // store handles toast
     }
   };
 

@@ -186,6 +186,19 @@ async function initDatabase() {
         INDEX idx_created_at (created_at)
       )
     `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS additional_holidays (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        date DATE NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        type ENUM('national', 'company') DEFAULT 'company',
+        created_by VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_holiday_date (date)
+      )
+    `);
     
     await conn.query(`
       CREATE TABLE IF NOT EXISTS version_history (
