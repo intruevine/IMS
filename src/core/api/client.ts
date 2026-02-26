@@ -64,9 +64,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
         ...options,
         headers
       });
+      const responseText = await response.text().catch(() => '');
 
       if (!response.ok) {
-        const responseText = await response.text().catch(() => '');
         let parsedError: any = null;
         try {
           parsedError = responseText ? JSON.parse(responseText) : null;
@@ -87,14 +87,20 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
         throw apiError;
       }
 
+      if (!responseText) {
+        return {} as T;
+      }
+
       try {
-        return await response.json();
+        return JSON.parse(responseText) as T;
       } catch (jsonError) {
-        // Some deployments rewrite unknown API paths to index.html (200 text/html).
-        // In that case, retry with the next candidate base URL.
+        const isHtmlResponse = /^\s*</.test(responseText);
         if (i < API_BASE_URL_CANDIDATES.length - 1) {
           lastError = jsonError;
           continue;
+        }
+        if (isHtmlResponse) {
+          throw new APIError('API returned HTML instead of JSON', 502);
         }
         throw jsonError;
       }
