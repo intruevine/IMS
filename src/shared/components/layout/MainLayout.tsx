@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/core/state/store';
 import { ConfirmModal, Toast } from '@/shared/components/ui';
 
-type MenuIcon = 'dashboard' | 'contracts' | 'assets' | 'members' | 'calendar' | 'reports' | 'api' | 'settings';
+type MenuIcon = 'dashboard' | 'contracts' | 'assets' | 'members' | 'calendar' | 'support' | 'reports' | 'api' | 'settings';
 
 type MenuItem = {
   path: string;
@@ -17,11 +17,11 @@ const publicMenuItems: MenuItem[] = [
   { path: '/assets', label: '자산 조회', icon: 'assets' },
   { path: '/project-members', label: '프로젝트 현황', icon: 'members' },
   { path: '/calendar', label: '일정 관리', icon: 'calendar' },
+  { path: '/client-support', label: '고객지원현황', icon: 'support' },
   { path: '/reports', label: '보고서', icon: 'reports' }
 ];
 
 const apiTestMenuItem: MenuItem = { path: '/api-test', label: 'API 테스트', icon: 'api' };
-
 const adminMenuItems: MenuItem[] = [{ path: '/settings', label: '설정', icon: 'settings' }];
 
 function MenuIconView({ icon }: { icon: MenuIcon }) {
@@ -55,6 +55,12 @@ function MenuIconView({ icon }: { icon: MenuIcon }) {
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 2v4m8-4v4M3 10h18M5 6h14a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+      );
+    case 'support':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8m-8 4h5m-7 7a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v4l4 4v6a2 2 0 01-2 2H6z" />
         </svg>
       );
     case 'reports':
@@ -91,12 +97,7 @@ const MainLayout: React.FC = () => {
   const logout = useAppStore((state) => state.logout);
   const showToast = useAppStore((state) => state.showToast);
 
-  const roleLabel =
-    role === 'admin'
-      ? '관리자'
-      : role === 'manager'
-      ? '중간 관리자'
-      : '일반 사용자';
+  const roleLabel = role === 'admin' ? '관리자' : role === 'manager' ? '중간 관리자' : '일반 사용자';
 
   useEffect(() => {
     const checkScreenSize = () => setIsMobile(window.innerWidth < 900);
@@ -110,16 +111,12 @@ const MainLayout: React.FC = () => {
   }
 
   const hasApiAccess = role === 'admin' || role === 'manager';
-  const menuItems = [
-    ...publicMenuItems,
-    ...(role === 'admin' ? adminMenuItems : []),
-    ...(hasApiAccess ? [apiTestMenuItem] : [])
-  ];
+  const menuItems = [...publicMenuItems, ...(role === 'admin' ? adminMenuItems : []), ...(hasApiAccess ? [apiTestMenuItem] : [])];
 
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
     logout();
-    showToast('로그아웃되었습니다', 'success');
+    showToast('로그아웃했습니다', 'success');
     navigate('/login');
   };
 
@@ -206,12 +203,7 @@ const MainLayout: React.FC = () => {
 
       {isMobile && isMobileMenuOpen && (
         <>
-          <button
-            onClick={() => setIsMobileMenuOpen(false)}
-            className="fixed inset-0 z-40 bg-slate-900/50"
-            aria-label="Close menu"
-            type="button"
-          />
+          <button onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-slate-900/50" aria-label="Close menu" type="button" />
           <div className="fixed top-16 right-0 bottom-0 w-64 bg-white border-l border-slate-200 z-50">
             <div className="p-4 border-b border-slate-200">
               <div className="flex items-center gap-3">

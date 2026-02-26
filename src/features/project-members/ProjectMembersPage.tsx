@@ -319,6 +319,8 @@ const ProjectMembersPage: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<ProjectMember | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | ProjectStatus>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadProjectMembers();
@@ -341,6 +343,16 @@ const ProjectMembersPage: React.FC = () => {
       return statusMatch && projectMatch;
     });
   }, [projectMembers, filterStatus, projectFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, projectFilter, projectMembers.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / itemsPerPage));
+  const paginatedMembers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredMembers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredMembers, currentPage]);
 
   const monthlySummary = useMemo(() => {
     const map = new Map<string, number>();
@@ -504,8 +516,8 @@ const ProjectMembersPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {filteredMembers.length > 0 ? (
-              filteredMembers.map((member) => (
+            {paginatedMembers.length > 0 ? (
+              paginatedMembers.map((member) => (
                 <tr key={member.id} className="hover:bg-blue-50/40 transition-colors">
                   <td className="px-4 py-2.5">
                     <p className="font-semibold text-slate-900">{member.project_name || '-'}</p>
@@ -579,6 +591,41 @@ const ProjectMembersPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {filteredMembers.length > 0 && totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage <= 1}
+          >
+            이전
+          </Button>
+          <div className="flex items-center gap-1 px-3 py-1 rounded-lg bg-white border border-slate-200">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded text-sm font-medium transition-colors ${
+                  currentPage === page ? 'bg-blue-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            다음
+          </Button>
+        </div>
+      )}
 
       <ProjectFormModal
         isOpen={isFormModalOpen}

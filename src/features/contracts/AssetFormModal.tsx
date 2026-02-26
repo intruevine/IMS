@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { Modal, Button, Input, Select } from '@/shared/components/ui';
 import type { AssetItem, InspectionCycle, AssetDetail, ContactPerson } from '@/types';
@@ -145,11 +145,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     if (!formData.item?.trim()) {
       newErrors.item = '품목명을 입력해주세요';
     }
-
-    if (!formData.product?.trim()) {
-      newErrors.product = '모델명을 입력해주세요';
-    }
-
     if (!formData.qty || formData.qty < 1) {
       newErrors.qty = '수량은 1 이상이어야 합니다';
     }
@@ -335,7 +330,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               onChange={(e) => handleChange('product', e.target.value)}
               error={errors.product}
               placeholder="예: AXGATE 4000"
-              required
             />
           </div>
         </div>
@@ -558,3 +552,4 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     </Modal>
   );
 };
+

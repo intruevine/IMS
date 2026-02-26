@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { Modal, Button, Input, Select } from '@/shared/components/ui';
 import type { AssetItem, InspectionCycle, AssetDetail, ContactPerson } from '@/types';
@@ -98,6 +98,17 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const calculateDetailsTotal = (details: AssetDetail[] = []) =>
+    details.reduce((sum, detail) => {
+      const parsed = Number(detail.qty);
+      return sum + (Number.isFinite(parsed) && parsed > 0 ? parsed : 0);
+    }, 0);
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
 
   useEffect(() => {
     loadContracts();
@@ -112,7 +123,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
         category: asset.category,
         item: asset.item,
         product: asset.product,
-        qty: asset.qty,
+        qty: legacyDetails.length > 0 ? Math.max(1, calculateDetailsTotal(legacyDetails)) : asset.qty,
         cycle: asset.cycle,
         scope: asset.scope || '',
         remark: asset.remark || '',
@@ -161,11 +172,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     if (!formData.item?.trim()) {
       newErrors.item = '품목명을 입력해주세요';
     }
-
-    if (!formData.product?.trim()) {
-      newErrors.product = '모델명을 입력해주세요';
-    }
-
     if (!formData.qty || formData.qty < 1) {
       newErrors.qty = '수량은 1 이상이어야 합니다';
     }
@@ -207,6 +213,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   };
 
   const handleEngineerChange = (field: 'main' | 'sub', subField: keyof ContactPerson, value: string) => {
+    const normalizedValue = subField === 'phone' ? formatPhoneNumber(value) : value;
     setFormData((prev) => {
       const currentEngineer = prev.engineer || {
         main: { name: '', rank: '', phone: '', email: '' },
@@ -220,7 +227,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
           ...currentEngineer,
           [field]: {
             ...currentField,
-            [subField]: value
+            [subField]: normalizedValue
           }
         }
       };
@@ -228,13 +235,14 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   };
 
   const handleSalesChange = (field: keyof ContactPerson, value: string) => {
+    const normalizedValue = field === 'phone' ? formatPhoneNumber(value) : value;
     setFormData((prev) => {
       const currentSales = prev.sales || { name: '', rank: '', phone: '', email: '' };
       return {
         ...prev,
         sales: {
           ...currentSales,
-          [field]: value
+          [field]: normalizedValue
         }
       };
     });
@@ -249,27 +257,38 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       };
       return {
         ...prev,
-        details: currentDetails
+        details: currentDetails,
+        qty: currentDetails.length > 0 ? Math.max(1, calculateDetailsTotal(currentDetails)) : prev.qty
       };
     });
   };
 
   const addDetail = () => {
-    setFormData((prev) => ({
-      ...prev,
-      details: [
+    setFormData((prev) => {
+      const nextDetails = [
         ...(prev.details || []),
         { content: '', qty: '', unit: 'ea' }
-      ]
-    }));
+      ];
+      return {
+        ...prev,
+        details: nextDetails,
+        qty: Math.max(1, calculateDetailsTotal(nextDetails))
+      };
+    });
   };
 
   const removeDetail = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      details: (prev.details || []).filter((_, i) => i !== index)
-    }));
+    setFormData((prev) => {
+      const nextDetails = (prev.details || []).filter((_, i) => i !== index);
+      return {
+        ...prev,
+        details: nextDetails,
+        qty: nextDetails.length > 0 ? Math.max(1, calculateDetailsTotal(nextDetails)) : 1
+      };
+    });
   };
+
+  const isDetailsDrivenQty = (formData.details || []).length > 0;
 
   return (
     <Modal
@@ -375,7 +394,6 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               onChange={(e) => handleChange('product', e.target.value)}
               error={errors.product}
               placeholder="예: AXGATE 4000"
-              required
             />
           </div>
         </div>
@@ -444,6 +462,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               value={formData.qty}
               onChange={(e) => handleChange('qty', parseInt(e.target.value) || 1)}
               error={errors.qty}
+              helperText={isDetailsDrivenQty ? '상세 구성 수량 합계로 자동 계산됩니다.' : undefined}
+              readOnly={isDetailsDrivenQty}
               required
             />
             <Select
@@ -597,3 +617,4 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
     </Modal>
   );
 };
+

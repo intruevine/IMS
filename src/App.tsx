@@ -10,6 +10,7 @@ import DashboardPage from '@/features/dashboard/DashboardPage';
 import ContractsPage from '@/features/contracts/ContractsPage';
 import AssetsPage from '@/features/assets/AssetsPage';
 import CalendarPage from '@/features/calendar/CalendarPage';
+import ClientSupportPage from '@/features/client-support/ClientSupportPage';
 import ReportsPage from '@/features/reports/ReportsPage';
 import SettingsPage from '@/features/settings/SettingsPage';
 import ProjectMembersPage from '@/features/project-members/ProjectMembersPage';
@@ -55,6 +56,7 @@ function App() {
           <Route path="contracts" element={<ContractsPage />} />
           <Route path="assets" element={<AssetsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
+          <Route path="client-support" element={<ClientSupportPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="project-members" element={<ProjectMembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
