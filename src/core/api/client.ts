@@ -42,8 +42,9 @@ export function clearAuthToken() {
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
+  const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options?.headers as Record<string, string> | undefined)
   };
   if (token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
@@ -135,6 +136,22 @@ export const contractsAPI = {
   delete: (id: number) => fetchAPI<{ message: string }>(`/contracts/${id}`, {
     method: 'DELETE',
   }),
+
+  uploadFiles: (id: number, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    return fetchAPI<{ files: any[]; message: string }>(`/contracts/${id}/files`, {
+      method: 'POST',
+      body: formData
+    });
+  },
+
+  getFiles: (id: number) => fetchAPI<any[]>(`/contracts/${id}/files`),
+
+  deleteFile: (id: number, fileId: number) =>
+    fetchAPI<{ message: string }>(`/contracts/${id}/files/${fileId}`, {
+      method: 'DELETE'
+    }),
 };
 
 // 자산 API

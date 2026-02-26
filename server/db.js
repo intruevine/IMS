@@ -96,6 +96,21 @@ async function initDatabase() {
         FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
       )
     `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS contract_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        contract_id INT NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        stored_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size BIGINT DEFAULT 0,
+        uploaded_by VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE CASCADE,
+        INDEX idx_contract_file_contract_id (contract_id)
+      )
+    `);
     
     await conn.query(`
       CREATE TABLE IF NOT EXISTS events (

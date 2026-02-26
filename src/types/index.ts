@@ -81,9 +81,21 @@ export interface Contract {
   end_date: string;   // YYYY-MM-DD
   notes?: string;
   items: AssetItem[];
+  files?: ContractFile[];
   created_at?: string;
   updated_at?: string;
   created_by?: string;
+}
+
+export interface ContractFile {
+  id: number;
+  contract_id: number;
+  original_name: string;
+  stored_name: string;
+  file_path: string;
+  file_size: number;
+  uploaded_by?: string;
+  created_at?: string;
 }
 
 /** Project member */
