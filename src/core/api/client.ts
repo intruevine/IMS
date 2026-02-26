@@ -1,13 +1,9 @@
 // API 기본 URL 설정
 const configuredApiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
-const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
-const appScopedApiBase =
-  appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
-
 const baseCandidatesSeed = import.meta.env.DEV
-  ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
-  : ['/api', configuredApiBase || fallbackApiBase, appScopedApiBase];
+  ? [configuredApiBase || fallbackApiBase, '/api']
+  : ['/api', configuredApiBase || fallbackApiBase];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
@@ -100,7 +96,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
           continue;
         }
         if (isHtmlResponse) {
-          throw new APIError('API returned HTML instead of JSON', 502);
+          throw new APIError(`API returned HTML instead of JSON (${url})`, 502);
         }
         throw jsonError;
       }
