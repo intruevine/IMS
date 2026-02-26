@@ -365,6 +365,7 @@ const CalendarPage: React.FC = () => {
   const users = useAppStore((state) => state.users);
   const currentUser = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const loadUsers = useAppStore((state) => state.loadUsers);
   const loadCalendarEvents = useAppStore((state) => state.loadCalendarEvents);
   const loadAdditionalHolidays = useAppStore((state) => state.loadAdditionalHolidays);
@@ -393,8 +394,9 @@ const CalendarPage: React.FC = () => {
   }, [loadCalendarEvents]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadAdditionalHolidays();
-  }, [loadAdditionalHolidays]);
+  }, [isAuthenticated, loadAdditionalHolidays]);
 
   useEffect(() => {
     if (holidayLoadError) {

@@ -236,6 +236,11 @@ export const useAppStore = create<AppState>()(
               isLoading: false,
               authError: null
             });
+            // Load auth-protected data immediately after successful login.
+            await Promise.allSettled([
+              get().loadCalendarEvents(),
+              get().loadAdditionalHolidays()
+            ]);
             return true;
           } catch (error) {
             clearAuthToken();
@@ -696,35 +701,54 @@ export const useAppStore = create<AppState>()(
         },
 
         loadAdditionalHolidays: async () => {
+          if (!get().isAuthenticated || !hasAuthToken()) {
+            set({ additionalHolidays: [], holidayLoadError: null });
+            return;
+          }
           try {
+            console.log('Loading holidays from API...');
             const holidays = await holidaysAPI.getAll();
+            console.log('Loaded holidays from API:', holidays.length, holidays.map((h: any) => ({ id: h.id, date: h.date, name: h.name, type: h.type })));
+            const mappedHolidays = holidays
+              .map((holiday: any) => ({
+                id: String(holiday.id),
+                date: holiday.date,
+                name: holiday.name,
+                type: (holiday.type || 'company') as HolidayType,
+                created_at: holiday.created_at,
+                updated_at: holiday.updated_at
+              }))
+              .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+            console.log('Mapped holidays:', mappedHolidays.length, mappedHolidays.map((h: any) => ({ id: h.id, date: h.date, name: h.name, type: h.type })));
             set({
-              additionalHolidays: holidays
-                .map((holiday: any) => ({
-                  id: String(holiday.id),
-                  date: holiday.date,
-                  name: holiday.name,
-                  type: (holiday.type || 'company') as HolidayType,
-                  created_at: holiday.created_at,
-                  updated_at: holiday.updated_at
-                }))
-                .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)),
+              additionalHolidays: mappedHolidays,
               holidayLoadError: null
             });
+            // Verify set worked
+            setTimeout(() => {
+              console.log('Store state after set:', get().additionalHolidays.length, get().additionalHolidays);
+            }, 0);
           } catch (error) {
             console.error('Failed to load additional holidays:', error);
-            set({ holidayLoadError: '추가 공휴일 데이터를 불러오지 못했습니다. 새로고침 또는 재로그인이 필요할 수 있습니다.' });
+            set({ 
+              additionalHolidays: [],
+              holidayLoadError: '추가 공휴일 데이터를 불러오지 못했습니다. 새로고침 또는 재로그인이 필요할 수 있습니다.' 
+            });
           }
         },
 
         addAdditionalHoliday: async (holiday) => {
           try {
-            await holidaysAPI.create({
+            console.log('Creating holiday:', holiday);
+            const result = await holidaysAPI.create({
               date: holiday.date,
               name: holiday.name,
               type: (holiday.type || 'company') as HolidayType
             });
+            console.log('Holiday created:', result);
+            console.log('Reloading holidays...');
             await get().loadAdditionalHolidays();
+            console.log('Holidays reloaded, current state:', get().additionalHolidays);
             get().showToast('추가 공휴일이 등록되었습니다', 'success');
           } catch (error) {
             console.error('Failed to add holiday:', error);
@@ -880,7 +904,17 @@ export const useAppStore = create<AppState>()(
           user: state.user, 
           role: state.role, 
           isAuthenticated: state.isAuthenticated
-        })
+        }),
+        onRehydrateStorage: () => (state) => {
+          console.log('Store rehydrated, additionalHolidays:', state?.additionalHolidays?.length);
+          if (state && hasAuthToken()) {
+            // Reload holidays after rehydration if authenticated
+            setTimeout(() => {
+              console.log('Reloading holidays after rehydration...');
+              state.loadAdditionalHolidays?.();
+            }, 0);
+          }
+        }
       }
     ),
     { name: 'IMS Store' }
