@@ -372,6 +372,7 @@ const CalendarPage: React.FC = () => {
   const generateCalendarEvents = useAppStore((state) => state.generateCalendarEventsFromData);
   const showToast = useAppStore((state) => state.showToast);
   const additionalHolidays = useAppStore((state) => state.additionalHolidays);
+  const holidayLoadError = useAppStore((state) => state.holidayLoadError);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -391,6 +392,12 @@ const CalendarPage: React.FC = () => {
   useEffect(() => {
     loadAdditionalHolidays();
   }, [loadAdditionalHolidays]);
+
+  useEffect(() => {
+    if (holidayLoadError) {
+      showToast('공휴일 데이터를 불러오지 못했습니다', 'warning');
+    }
+  }, [holidayLoadError, showToast]);
 
   useEffect(() => {
     if (role === 'admin') {
@@ -685,6 +692,11 @@ const CalendarPage: React.FC = () => {
           </div>
         </div>
       </Card>
+      {holidayLoadError && (
+        <Card className="mb-4 border border-amber-200 bg-amber-50 text-amber-800">
+          <p className="text-sm">{holidayLoadError}</p>
+        </Card>
+      )}
 
       <Card className="p-4">
         <FullCalendar

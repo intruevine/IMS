@@ -74,6 +74,7 @@ interface DashboardState {
 interface CalendarState {
   calendarEvents: CalendarEvent[];
   additionalHolidays: AdditionalHoliday[];
+  holidayLoadError: string | null;
 }
 
 interface AssetState {
@@ -200,6 +201,7 @@ export const useAppStore = create<AppState>()(
         unreadCount: 0,
         calendarEvents: [],
         additionalHolidays: [],
+        holidayLoadError: null,
         
         // Asset State
         assets: [],
@@ -366,7 +368,9 @@ export const useAppStore = create<AppState>()(
             pendingUsers: [],
             contracts: [],
             currentContract: null,
-            filteredContracts: []
+            filteredContracts: [],
+            additionalHolidays: [],
+            holidayLoadError: null
           });
         },
 
@@ -704,10 +708,12 @@ export const useAppStore = create<AppState>()(
                   created_at: holiday.created_at,
                   updated_at: holiday.updated_at
                 }))
-                .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name))
+                .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)),
+              holidayLoadError: null
             });
           } catch (error) {
             console.error('Failed to load additional holidays:', error);
+            set({ holidayLoadError: '추가 공휴일 데이터를 불러오지 못했습니다. 새로고침 또는 재로그인이 필요할 수 있습니다.' });
           }
         },
 

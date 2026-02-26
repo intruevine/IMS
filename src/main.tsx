@@ -48,6 +48,20 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled rejection:', event.reason);
 });
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Force an update check so long-lived clients pick up the latest build faster.
+    setTimeout(async () => {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.update()));
+      } catch (error) {
+        console.error('Service worker update check failed:', error);
+      }
+    }, 1000);
+  });
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RootErrorBoundary>
