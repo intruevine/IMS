@@ -288,3 +288,24 @@
 .fc .fc-col-header-cell.fc-sat-day .fc-col-header-cell-cushion {
   color: #2563eb !important;
 }
+
+/* Holiday events visibility */
+.fc .fc-event.holiday-event {
+  opacity: 1 !important;
+  z-index: 100 !important;
+}
+
+.fc .fc-event.holiday-event.national-holiday {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.holiday-event.national-holiday .fc-event-main {
+  color: #ffffff !important;
+}
+
+.fc .fc-event.holiday-event.company-holiday {
+  background-color: #14b8a6 !important;
+  border-color: #14b8a6 !important;
+}
