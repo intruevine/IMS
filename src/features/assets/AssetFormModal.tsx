@@ -13,6 +13,7 @@ interface AssetFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   asset?: AssetWithContract | null;
+  readOnly?: boolean;
   onSuccess?: () => void;
 }
 
@@ -37,10 +38,38 @@ const UNIT_OPTIONS = [
   { value: '개', label: '개' }
 ];
 
+const parseLegacyDetails = (details: AssetDetail[] | undefined, specs: string | undefined) => {
+  if (Array.isArray(details) && details.length > 0) return details;
+  const raw = (specs || '').trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((detail: any) => ({
+          content: String(detail?.content || detail?.item || '').trim(),
+          qty: String(detail?.qty || '').trim(),
+          unit: String(detail?.unit || 'ea').trim() || 'ea'
+        }))
+        .filter((detail) => detail.content || detail.qty);
+    }
+  } catch {
+    // ignore parse failure and fallback to text split
+  }
+
+  return raw
+    .split(/\r?\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((content) => ({ content, qty: '', unit: 'ea' }));
+};
+
 export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   isOpen,
   onClose,
   asset,
+  readOnly = false,
   onSuccess
 }) => {
   const addAsset = useAppStore((state) => state.addAsset);
@@ -76,6 +105,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   useEffect(() => {
     if (asset) {
+      const legacyDetails = parseLegacyDetails(asset.details, asset.specs);
+
       setSelectedContractId(asset.contractId);
       setFormData({
         category: asset.category,
@@ -91,7 +122,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
           sub: { name: '', rank: '', phone: '', email: '' }
         },
         sales: asset.sales || { name: '', rank: '', phone: '', email: '' },
-        details: asset.details || []
+        details: legacyDetails
       });
     } else {
       setSelectedContractId(0);
@@ -145,6 +176,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     
     if (!validate()) return;
 
@@ -254,6 +286,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             variant="primary"
             onClick={handleSubmit}
             isLoading={isSubmitting}
+            disabled={readOnly}
+            className={readOnly ? 'hidden' : ''}
             leftIcon={<span>✓</span>}
           >
             정보 저장
@@ -262,6 +296,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+        <fieldset disabled={readOnly} className="contents">
         {/* 계약 선택 섹션 */}
         {!asset && (
           <div className="bg-yellow-50 rounded-xl p-6 border border-yellow-100">
@@ -355,7 +390,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
               </svg>
               상세 구성
             </h4>
-            <Button variant="primary" size="sm" onClick={addDetail} type="button">
+            <Button variant="primary" size="sm" onClick={addDetail} type="button" className={readOnly ? 'hidden' : ''}>
               + 항목 추가
             </Button>
           </div>
@@ -387,7 +422,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="!p-2 text-red-500"
+                  className={`!p-2 text-red-500 ${readOnly ? 'hidden' : ''}`}
                   onClick={() => removeDetail(idx)}
                   type="button"
                 >
@@ -557,6 +592,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
             </div>
           </div>
         </div>
+        </fieldset>
       </form>
     </Modal>
   );

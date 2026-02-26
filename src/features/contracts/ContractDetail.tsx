@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/core/state/store';
+import { assetsAPI } from '@/core/api/client';
 import { Card, Button, StatusBadge, ConfirmModal } from '@/shared/components/ui';
 import { AssetFormModal } from './AssetFormModal';
 import type { Contract, AssetItem } from '@/types';
@@ -247,6 +248,15 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                             </span>
                           </div>
                           <p className="text-sm text-slate-500">{asset.product}</p>
+                          {asset.details && asset.details.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {asset.details.map((detail, detailIndex) => (
+                                <p key={`${asset.id}-detail-${detailIndex}`} className="text-xs text-slate-500">
+                                  - {detail.content} {detail.qty ? `(${detail.qty}${detail.unit || ''})` : ''}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                           {asset.engineer?.main?.name && (
                             <p className="text-xs text-slate-400 mt-1">
                               담당: {asset.engineer.main.name}
@@ -267,8 +277,17 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                             variant="ghost"
                             size="sm"
                             className="!p-2"
-                            onClick={() => {
-                              setSelectedAsset(asset);
+                            onClick={async () => {
+                              try {
+                                const latest = await assetsAPI.getById(asset.id);
+                                setSelectedAsset({
+                                  ...asset,
+                                  ...latest
+                                });
+                              } catch (error) {
+                                console.error('Failed to load asset detail:', error);
+                                setSelectedAsset(asset);
+                              }
                               setIsAssetModalOpen(true);
                             }}
                           >

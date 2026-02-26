@@ -31,6 +31,33 @@ const UNIT_OPTIONS = [
   { value: '개', label: '개' }
 ];
 
+const parseLegacyDetails = (details: AssetDetail[] | undefined, specs: string | undefined) => {
+  if (Array.isArray(details) && details.length > 0) return details;
+  const raw = (specs || '').trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((detail: any) => ({
+          content: String(detail?.content || detail?.item || '').trim(),
+          qty: String(detail?.qty || '').trim(),
+          unit: String(detail?.unit || 'ea').trim() || 'ea'
+        }))
+        .filter((detail) => detail.content || detail.qty);
+    }
+  } catch {
+    // ignore parse failure and fallback to text split
+  }
+
+  return raw
+    .split(/\r?\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((content) => ({ content, qty: '', unit: 'ea' }));
+};
+
 export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   isOpen,
   onClose,
@@ -74,7 +101,7 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
 
   useEffect(() => {
     if (asset) {
-      const details = asset.details || [];
+      const details = parseLegacyDetails(asset.details, asset.specs);
       setFormData({
         category: asset.category,
         item: asset.item,

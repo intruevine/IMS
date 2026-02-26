@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
+import { assetsAPI } from '@/core/api/client';
 import { Card, Button, ConfirmModal } from '@/shared/components/ui';
 import type { AssetItem, AssetCategory } from '@/types';
 import { AssetFormModal } from './AssetFormModal';
@@ -25,11 +26,13 @@ const AssetsPage: React.FC = () => {
   const loadContracts = useAppStore((state) => state.loadContracts);
   const role = useAppStore((state) => state.role);
   const isAdmin = role === 'admin';
+  const canManageAsset = role === 'admin' || role === 'manager';
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetWithContract | null>(null);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('view');
 
   useEffect(() => {
     loadAssets();
@@ -59,13 +62,45 @@ const AssetsPage: React.FC = () => {
     }
   };
 
-  const handleEdit = (asset: AssetWithContract) => {
-    setSelectedAsset(asset);
+  const handleEdit = async (asset: AssetWithContract) => {
+    try {
+      const latest = await assetsAPI.getById(asset.id);
+      setSelectedAsset({
+        ...asset,
+        ...latest,
+        contractId: asset.contractId,
+        customerName: asset.customerName,
+        projectTitle: asset.projectTitle
+      });
+    } catch (error) {
+      console.error('Failed to load asset detail:', error);
+      setSelectedAsset(asset);
+    }
+    setFormMode('edit');
+    setIsFormModalOpen(true);
+  };
+
+  const handleView = async (asset: AssetWithContract) => {
+    try {
+      const latest = await assetsAPI.getById(asset.id);
+      setSelectedAsset({
+        ...asset,
+        ...latest,
+        contractId: asset.contractId,
+        customerName: asset.customerName,
+        projectTitle: asset.projectTitle
+      });
+    } catch (error) {
+      console.error('Failed to load asset detail:', error);
+      setSelectedAsset(asset);
+    }
+    setFormMode('view');
     setIsFormModalOpen(true);
   };
 
   const handleAdd = () => {
     setSelectedAsset(null);
+    setFormMode('create');
     setIsFormModalOpen(true);
   };
 
@@ -208,7 +243,21 @@ const AssetsPage: React.FC = () => {
                   </p>
                 </div>
 
-                {isAdmin && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleView(asset)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                    title="조회"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.065 7-9.542 7S3.732 16.057 2.458 12z" />
+                    </svg>
+                  </button>
+                </div>
+
+                {canManageAsset && (
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -320,12 +369,15 @@ const AssetsPage: React.FC = () => {
         onClose={() => {
           setIsFormModalOpen(false);
           setSelectedAsset(null);
+          setFormMode('view');
         }}
         asset={selectedAsset}
+        readOnly={formMode === 'view'}
         onSuccess={() => {
           loadAssets();
           setIsFormModalOpen(false);
           setSelectedAsset(null);
+          setFormMode('view');
         }}
       />
     </div>
