@@ -5,9 +5,13 @@ const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
 const appScopedApiBase =
   appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
 
+const baseCandidatesSeed = import.meta.env.DEV
+  ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
+  : ['/api', configuredApiBase || fallbackApiBase, appScopedApiBase];
+
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
-    [configuredApiBase || fallbackApiBase, appScopedApiBase, '/api']
+    baseCandidatesSeed
       .filter(Boolean)
       .map((url) => String(url).replace(/\/+$/, ''))
   )
