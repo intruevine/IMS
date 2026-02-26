@@ -1,7 +1,6 @@
 ﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -47,7 +46,6 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('json replacer', jsonBigIntReplacer);
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database init
 const { initDatabase } = require('./db');

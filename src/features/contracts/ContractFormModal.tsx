@@ -18,28 +18,11 @@ function formatFileSize(bytes: number) {
   return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-function resolveFileUrl(filePath: string) {
-  if (!filePath) return '#';
-  if (/^https?:\/\//i.test(filePath)) return filePath;
-
-  const normalized = filePath.startsWith('/') ? filePath : `/${filePath}`;
-  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '');
-  if (apiUrl) {
-    const apiOrigin = apiUrl.replace(/\/api$/i, '');
-    return `${apiOrigin}${normalized}`;
-  }
-
-  if (import.meta.env.DEV) {
-    return `http://localhost:3001${normalized}`;
-  }
-
-  return normalized;
-}
-
 export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, onClose, contract }) => {
   const createContract = useAppStore((state) => state.createContract);
   const updateContract = useAppStore((state) => state.updateContract);
   const showToast = useAppStore((state) => state.showToast);
+  const role = useAppStore((state) => state.role);
 
   const [formData, setFormData] = useState<Partial<Contract>>({
     customer_name: '',
@@ -144,6 +127,7 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
   };
 
   const existingFiles = contract?.files || [];
+  const canDownloadFiles = role === 'admin' || role === 'manager';
 
   return (
     <Modal
@@ -274,15 +258,26 @@ export const ContractFormModal: React.FC<ContractFormModalProps> = ({ isOpen, on
               <ul className="space-y-1">
                 {existingFiles.map((file) => (
                   <li key={file.id} className="text-xs text-slate-700 flex items-center justify-between gap-2">
-                    <a
-                      href={resolveFileUrl(file.file_path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="truncate text-blue-600 hover:underline"
-                    >
-                      {file.original_name}
-                    </a>
+                    <span className="truncate">{file.original_name}</span>
                     <span className="text-slate-500">{formatFileSize(file.file_size)}</span>
+                    {canDownloadFiles ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await contractsAPI.downloadFile(contract!.id, file.id, file.original_name);
+                          } catch (error) {
+                            console.error('File download error:', error);
+                            showToast('파일 다운로드에 실패했습니다.', 'error');
+                          }
+                        }}
+                        className="rounded border border-slate-200 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                      >
+                        다운로드
+                      </button>
+                    ) : (
+                      <span className="text-slate-400">권한 없음</span>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -112,6 +112,11 @@ function formatContractFile(file) {
   };
 }
 
+function canDownloadFile(req) {
+  const role = req.user?.role;
+  return role === 'admin' || role === 'manager';
+}
+
 async function fetchContractFilesMap(conn, contractIds) {
   if (!Array.isArray(contractIds) || contractIds.length === 0) return new Map();
 
@@ -385,6 +390,40 @@ router.get('/:id/files', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching contract files:', error);
     res.status(500).json({ error: 'Failed to fetch contract files' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// Download a contract file (admin/manager only)
+router.get('/:id/files/:fileId/download', authenticateToken, async (req, res) => {
+  let conn;
+  try {
+    if (!canDownloadFile(req)) {
+      return res.status(403).json({ error: 'Download permission required' });
+    }
+
+    conn = await pool.getConnection();
+    const contractId = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
+    const [file] = await conn.query(
+      'SELECT id, original_name, file_path FROM contract_files WHERE id = ? AND contract_id = ?',
+      [fileId, contractId]
+    );
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const fullPath = path.join(__dirname, '..', file.file_path.replace(/^\/+/, ''));
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ error: 'File not found on disk' });
+    }
+
+    return res.download(fullPath, file.original_name || 'contract-file');
+  } catch (error) {
+    console.error('Error downloading contract file:', error);
+    return res.status(500).json({ error: 'Failed to download contract file' });
   } finally {
     if (conn) conn.release();
   }

@@ -152,6 +152,53 @@ export const contractsAPI = {
     fetchAPI<{ message: string }>(`/contracts/${id}/files/${fileId}`, {
       method: 'DELETE'
     }),
+
+  downloadFile: async (id: number, fileId: number, fileName: string) => {
+    const token = getAuthToken();
+    let lastError: unknown = null;
+
+    for (let i = 0; i < API_BASE_URL_CANDIDATES.length; i += 1) {
+      const apiBase = API_BASE_URL_CANDIDATES[i];
+      const url = `${apiBase}/contracts/${id}/files/${fileId}/download`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          const errorMessage = text || `HTTP ${response.status}`;
+          const error = new APIError(errorMessage, response.status);
+          if (response.status === 404 && i < API_BASE_URL_CANDIDATES.length - 1) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName || 'download';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(downloadUrl);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof TypeError && i < API_BASE_URL_CANDIDATES.length - 1) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new APIError('Download failed', 500);
+  }
 };
 
 // 자산 API
