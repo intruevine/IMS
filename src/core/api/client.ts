@@ -1,9 +1,13 @@
 // API 기본 URL 설정
 const configuredApiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
+const appScopedApiBase =
+  appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
+
 const baseCandidatesSeed = import.meta.env.DEV
-  ? [configuredApiBase || fallbackApiBase, '/api']
-  : ['/api', configuredApiBase || fallbackApiBase];
+  ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
+  : ['/api', configuredApiBase || fallbackApiBase, appScopedApiBase];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
