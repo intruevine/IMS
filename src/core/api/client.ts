@@ -1,13 +1,14 @@
 // API 기본 URL 설정
 const configuredApiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+const canonicalApiBase = import.meta.env.PROD ? 'https://intruevine.dscloud.biz/api' : null;
 const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
 const appScopedApiBase =
   appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
 
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
-  : ['/api', configuredApiBase || fallbackApiBase, appScopedApiBase];
+  : ['/api', canonicalApiBase, configuredApiBase || fallbackApiBase, appScopedApiBase];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
@@ -80,7 +81,8 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
         const apiError = new APIError(errorMessage, response.status);
 
         // Try another base URL only when endpoint is not found.
-        if (response.status === 404 && i < API_BASE_URL_CANDIDATES.length - 1) {
+        const looksLikeBaseUrlMismatch = /public base url/i.test(responseText);
+        if ((response.status === 404 || looksLikeBaseUrlMismatch) && i < API_BASE_URL_CANDIDATES.length - 1) {
           lastError = apiError;
           continue;
         }
