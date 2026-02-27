@@ -8,7 +8,7 @@ const appScopedApiBase =
 
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
-  : ['/api', canonicalApiBase, configuredApiBase || fallbackApiBase, appScopedApiBase];
+  : ['/api', canonicalApiBase, configuredApiBase || fallbackApiBase];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
