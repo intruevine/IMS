@@ -78,6 +78,7 @@ const SettingsPage: React.FC = () => {
   const addAdditionalHoliday = useAppStore((state) => state.addAdditionalHoliday);
   const updateAdditionalHoliday = useAppStore((state) => state.updateAdditionalHoliday);
   const deleteAdditionalHoliday = useAppStore((state) => state.deleteAdditionalHoliday);
+  const clearAdditionalHolidays = useAppStore((state) => state.clearAdditionalHolidays);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -329,6 +330,17 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleClearAllHolidays = async () => {
+    const ok = window.confirm('등록된 공휴일 데이터를 전체 삭제할까요? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
+    try {
+      await clearAdditionalHolidays();
+      resetHolidayForm();
+    } catch {
+      // store handles toast
+    }
+  };
+
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
     logout();
@@ -541,6 +553,9 @@ const SettingsPage: React.FC = () => {
                 <div className="flex gap-2">
                   <Button variant="primary" onClick={handleSaveHoliday}>
                     {editingHolidayId ? '수정 저장' : '공휴일 추가'}
+                  </Button>
+                  <Button variant="danger" onClick={handleClearAllHolidays}>
+                    전체 삭제
                   </Button>
                   {editingHolidayId && (
                     <Button variant="secondary" onClick={resetHolidayForm}>

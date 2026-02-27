@@ -172,6 +172,7 @@ interface AppState extends AuthState, UIState, ContractState, DashboardState, Ca
   addAdditionalHoliday: (holiday: Omit<AdditionalHoliday, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateAdditionalHoliday: (id: string, changes: Partial<Omit<AdditionalHoliday, 'id'>>) => Promise<void>;
   deleteAdditionalHoliday: (id: string) => Promise<void>;
+  clearAdditionalHolidays: () => Promise<void>;
 }
 
 // ============================================
@@ -798,6 +799,18 @@ export const useAppStore = create<AppState>()(
           } catch (error) {
             console.error('Failed to delete holiday:', error);
             get().showToast('공휴일 삭제 실패', 'error');
+            throw error;
+          }
+        },
+
+        clearAdditionalHolidays: async () => {
+          try {
+            await holidaysAPI.clearAll();
+            await get().loadAdditionalHolidays();
+            get().showToast('공휴일 전체 데이터가 초기화되었습니다', 'success');
+          } catch (error) {
+            console.error('Failed to clear holidays:', error);
+            get().showToast('공휴일 전체 삭제 실패', 'error');
             throw error;
           }
         },

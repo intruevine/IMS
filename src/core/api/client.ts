@@ -380,6 +380,11 @@ export const holidaysAPI = {
   delete: (id: string) =>
     fetchAPI<{ message: string }>(`/holidays/${id}`, {
       method: 'DELETE'
+    }),
+
+  clearAll: () =>
+    fetchAPI<{ message: string }>('/holidays', {
+      method: 'DELETE'
     })
 };
 

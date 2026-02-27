@@ -147,4 +147,21 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+router.delete('/', authenticateToken, async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin permission required' });
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    await conn.query('DELETE FROM additional_holidays');
+    await conn.query('ALTER TABLE additional_holidays AUTO_INCREMENT = 1');
+    res.json({ message: 'All holidays deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting all holidays:', error);
+    res.status(500).json({ error: 'Failed to delete all holidays' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 module.exports = router;
