@@ -29,6 +29,21 @@ import {
 } from '../api/client';
 import { getContractStatus } from '@/shared/utils/contract';
 
+function normalizeHolidayDateCompact(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{8}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw.replace(/-/g, '');
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10).replace(/-/g, '');
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
 // ============================================
 // 상태 인터페이스
 // ============================================
@@ -713,12 +728,13 @@ export const useAppStore = create<AppState>()(
             const mappedHolidays = holidays
               .map((holiday: any) => ({
                 id: String(holiday.id),
-                date: holiday.date,
+                date: normalizeHolidayDateCompact(holiday.date),
                 name: holiday.name,
                 type: (holiday.type || 'company') as HolidayType,
                 created_at: holiday.created_at,
                 updated_at: holiday.updated_at
               }))
+              .filter((holiday) => /^\d{8}$/.test(holiday.date))
               .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
             console.log('Mapped holidays:', mappedHolidays.length, mappedHolidays.map((h: any) => ({ id: h.id, date: h.date, name: h.name, type: h.type })));
             set({
