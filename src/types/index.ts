@@ -197,12 +197,20 @@ export type CalendarEventType =
   | 'training'
   | 'sales_support';
 
+export type CalendarScheduleDivision =
+  | 'am_offsite'
+  | 'pm_offsite'
+  | 'all_day_offsite'
+  | 'night_support'
+  | 'emergency_support';
+
 export type HolidayType = 'national' | 'company';
 
 export interface CalendarEvent {
   id: string;
   title: string;
   type: CalendarEventType;
+  scheduleDivision?: CalendarScheduleDivision;
   createdBy?: string;
   createdByName?: string;
   customerName?: string;

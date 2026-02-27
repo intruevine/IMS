@@ -14,6 +14,54 @@ const pool = mariadb.createPool({
   acquireTimeout: 10000
 });
 
+const HOLIDAY_SYNC_YEARS = [2026, 2027, 2028, 2029, 2030];
+const HOLIDAY_API_BASE = 'https://date.nager.at/api/v3/publicholidays';
+
+async function syncNationalHolidays(conn) {
+  if (typeof fetch !== 'function') {
+    console.warn('Global fetch is not available. Skipping national holiday sync.');
+    return;
+  }
+
+  let insertedCount = 0;
+
+  for (const year of HOLIDAY_SYNC_YEARS) {
+    try {
+      const res = await fetch(`${HOLIDAY_API_BASE}/${year}/KR`);
+      if (!res.ok) {
+        console.warn(`Holiday sync skipped for ${year}: HTTP ${res.status}`);
+        continue;
+      }
+
+      const holidays = await res.json();
+      if (!Array.isArray(holidays)) continue;
+
+      for (const holiday of holidays) {
+        const date = String(holiday?.date || '').slice(0, 10);
+        const name = String(holiday?.localName || holiday?.name || '').trim();
+        if (!date || !name) continue;
+
+        const result = await conn.query(
+          `INSERT INTO additional_holidays (date, name, type, created_by)
+           SELECT ?, ?, 'national', 'system'
+           WHERE NOT EXISTS (
+             SELECT 1
+             FROM additional_holidays
+             WHERE date = ? AND name = ? AND type = 'national'
+           )`,
+          [date, name, date, name]
+        );
+
+        if (result?.affectedRows) insertedCount += Number(result.affectedRows);
+      }
+    } catch (error) {
+      console.warn(`Holiday sync failed for ${year}:`, error?.message || error);
+    }
+  }
+
+  console.log(`National holiday sync completed. Inserted: ${insertedCount}`);
+}
+
 // 데이터베이스 초기화 (테이블 생성)
 async function initDatabase() {
   let conn;
@@ -117,6 +165,7 @@ async function initDatabase() {
         id VARCHAR(36) PRIMARY KEY,
         title VARCHAR(300) NOT NULL,
         type ENUM('contract_end', 'inspection', 'maintenance', 'meeting', 'remote_support', 'training', 'sales_support', 'other') DEFAULT 'other',
+        schedule_division ENUM('am_offsite', 'pm_offsite', 'all_day_offsite', 'night_support', 'emergency_support') NULL,
         created_by VARCHAR(50),
         customer_name VARCHAR(200),
         location VARCHAR(300),
@@ -137,6 +186,7 @@ async function initDatabase() {
 
     // 기존 DB 업그레이드: 누락 컬럼 추가
     await conn.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS created_by VARCHAR(50) NULL AFTER type');
+    await conn.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS schedule_division ENUM('am_offsite', 'pm_offsite', 'all_day_offsite', 'night_support', 'emergency_support') NULL AFTER type");
     await conn.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS customer_name VARCHAR(200) NULL AFTER type');
     await conn.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS location VARCHAR(300) NULL AFTER customer_name');
     await conn.query('ALTER TABLE events ADD COLUMN IF NOT EXISTS support_hours DECIMAL(6,2) NULL AFTER status');
@@ -199,6 +249,9 @@ async function initDatabase() {
         INDEX idx_holiday_date (date)
       )
     `);
+
+    // Ensure KR national holidays (2026~2030) are managed in additional_holidays.
+    await syncNationalHolidays(conn);
     
     await conn.query(`
       CREATE TABLE IF NOT EXISTS version_history (

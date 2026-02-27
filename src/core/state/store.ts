@@ -629,6 +629,7 @@ export const useAppStore = create<AppState>()(
               ...event,
               createdBy: event.createdBy ?? event.created_by ?? undefined,
               createdByName: event.createdByName ?? event.created_by_name ?? undefined,
+              scheduleDivision: event.scheduleDivision ?? event.schedule_division ?? undefined,
               contractId: event.contractId ?? event.contract_id ?? 0,
               assetId: event.assetId ?? event.asset_id ?? undefined,
               customerName: event.customerName ?? event.customer_name ?? event.contract_customer_name ?? '',

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { Card, Button, Modal, Input, Select, ConfirmModal } from '@/shared/components/ui';
-import type { CalendarEvent, CalendarEventType } from '@/types';
+import type { CalendarEvent, CalendarEventType, CalendarScheduleDivision } from '@/types';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -93,6 +93,14 @@ const EVENT_TYPE_OPTIONS: { value: CalendarEventType; label: string; color: stri
   { value: 'sales_support', label: '영업 지원', color: '#0ea5a4' }
 ];
 
+const SCHEDULE_DIVISION_OPTIONS: { value: CalendarScheduleDivision; label: string }[] = [
+  { value: 'am_offsite', label: '오전외근' },
+  { value: 'pm_offsite', label: '오후외근' },
+  { value: 'all_day_offsite', label: '전일외근' },
+  { value: 'night_support', label: '야간지원' },
+  { value: 'emergency_support', label: '긴급지원' }
+];
+
 const EventFormModal: React.FC<EventFormModalProps> = ({
   isOpen,
   onClose,
@@ -111,6 +119,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
   const [formData, setFormData] = useState<Partial<CalendarEvent>>({
     title: '',
     type: 'inspection',
+    scheduleDivision: 'all_day_offsite',
     customerName: '',
     location: '',
     start: '',
@@ -133,6 +142,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
       setFormData({
         title: event.title,
         type: event.type,
+        scheduleDivision: event.scheduleDivision || 'all_day_offsite',
         customerName: event.customerName || '',
         location: event.location || '',
         start: toDateTimeLocalInput(event.start),
@@ -149,6 +159,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
       setFormData({
         title: '',
         type: 'inspection',
+        scheduleDivision: 'all_day_offsite',
         customerName: '',
         location: '',
         start: format(startDate, "yyyy-MM-dd'T'HH:mm"),
@@ -174,6 +185,10 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
 
     if (!formData.end) {
       newErrors.end = '종료 일시를 선택해 주세요';
+    }
+
+    if (!formData.scheduleDivision) {
+      newErrors.scheduleDivision = '일정 구분을 선택해 주세요';
     }
 
     if (formData.start && formData.end && new Date(formData.start) > new Date(formData.end)) {
@@ -271,10 +286,22 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
             required
           />
           <Select
+            label="일정 구분"
+            value={formData.scheduleDivision || 'all_day_offsite'}
+            onChange={(e) => setFormData((prev) => ({ ...prev, scheduleDivision: e.target.value as CalendarScheduleDivision }))}
+            options={SCHEDULE_DIVISION_OPTIONS}
+            error={errors.scheduleDivision}
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Select
             label="연결 계약"
             value={String(formData.contractId)}
             onChange={(e) => setFormData((prev) => ({ ...prev, contractId: parseInt(e.target.value, 10) }))}
             options={[{ value: '0', label: '선택 안 함' }, ...contractOptions]}
+            helperText={contractOptions.length === 0 ? '등록된 계약이 없어도 일정 등록은 가능합니다.' : undefined}
           />
         </div>
 
@@ -358,6 +385,7 @@ const CalendarPage: React.FC = () => {
   const role = useAppStore((state) => state.role);
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const loadUsers = useAppStore((state) => state.loadUsers);
+  const loadContracts = useAppStore((state) => state.loadContracts);
   const loadCalendarEvents = useAppStore((state) => state.loadCalendarEvents);
   const loadAdditionalHolidays = useAppStore((state) => state.loadAdditionalHolidays);
   const deleteEvent = useAppStore((state) => state.deleteCalendarEvent);
@@ -381,7 +409,8 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     loadCalendarEvents();
-  }, [loadCalendarEvents]);
+    loadContracts();
+  }, [loadCalendarEvents, loadContracts]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

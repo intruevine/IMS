@@ -31,6 +31,7 @@ router.get('/', authenticateToken, async (req, res) => {
         e.id,
         e.title,
         e.type,
+        e.schedule_division,
         e.created_by,
         u.display_name AS created_by_name,
         e.customer_name,
@@ -89,6 +90,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
          e.id,
          e.title,
          e.type,
+         e.schedule_division,
          e.created_by,
          u.display_name AS created_by_name,
          e.customer_name,
@@ -133,6 +135,8 @@ router.post('/', authenticateToken, async (req, res) => {
       id,
       title,
       type,
+      schedule_division,
+      scheduleDivision,
       customer_name,
       customerName,
       location,
@@ -151,12 +155,13 @@ router.post('/', authenticateToken, async (req, res) => {
     const eventId = id || require('crypto').randomUUID();
     
     await conn.query(
-      `INSERT INTO events (id, title, type, created_by, customer_name, location, start, end, contract_id, asset_id, status, support_hours, description) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO events (id, title, type, schedule_division, created_by, customer_name, location, start, end, contract_id, asset_id, status, support_hours, description) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         title,
         type,
+        schedule_division || scheduleDivision || null,
         req.user?.username || null,
         customer_name || customerName || null,
         location || null,
@@ -187,6 +192,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const {
       title,
       type,
+      schedule_division,
+      scheduleDivision,
       customer_name,
       customerName,
       location,
@@ -216,11 +223,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     await conn.query(
       `UPDATE events SET
-        title = ?, type = ?, customer_name = ?, location = ?, start = ?, end = ?, contract_id = ?, asset_id = ?, status = ?, support_hours = ?, description = ?
+        title = ?, type = ?, schedule_division = ?, customer_name = ?, location = ?, start = ?, end = ?, contract_id = ?, asset_id = ?, status = ?, support_hours = ?, description = ?
       WHERE id = ?`,
       [
         title,
         type,
+        schedule_division || scheduleDivision || null,
         customer_name || customerName || null,
         location || null,
         start,
