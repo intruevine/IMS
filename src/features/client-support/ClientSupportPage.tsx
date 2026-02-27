@@ -46,6 +46,35 @@ function getMonthRange() {
   return { start: toDateInput(start), end: toDateInput(end) };
 }
 
+function toMonthInput(date: Date) {
+  return format(date, 'yyyy-MM');
+}
+
+function getWeekOfMonth(date: Date) {
+  return Math.floor((date.getDate() - 1) / 7) + 1;
+}
+
+function getHoursFromEvent(event: { supportHours?: number; start: string; end: string }) {
+  const saved = Number(event.supportHours || 0);
+  if (saved > 0) return saved;
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 0;
+  return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+}
+
+function getSupportDayScore(event: { scheduleDivision?: string; supportHours?: number; start: string; end: string }) {
+  const division = event.scheduleDivision;
+  if (division === 'am_offsite' || division === 'pm_offsite') return 0.5;
+  if (division === 'all_day_offsite') return 1;
+  if (division === 'night_support') {
+    const hours = getHoursFromEvent(event);
+    return (hours / 8) * 1.5;
+  }
+  const hours = getHoursFromEvent(event);
+  return hours > 0 ? hours / 8 : 0;
+}
+
 const StatCard: React.FC<{ title: string; value: string | number; subtitle?: string }> = ({ title, value, subtitle }) => (
   <Card>
     <p className="text-xs font-semibold text-slate-500 mb-1">{title}</p>
@@ -66,6 +95,7 @@ const ClientSupportPage: React.FC = () => {
   const [mode, setMode] = useState<SupportMode>('personal');
   const [startDate, setStartDate] = useState(monthRange.start);
   const [endDate, setEndDate] = useState(monthRange.end);
+  const [statsMonth, setStatsMonth] = useState(toMonthInput(new Date()));
   const [selectedUsername, setSelectedUsername] = useState('');
 
   const isAdmin = role === 'admin';
@@ -180,6 +210,54 @@ const ClientSupportPage: React.FC = () => {
     };
   }, [filteredEvents]);
 
+  const supportDayStats = useMemo(() => {
+    if (!isAdmin) return { rows: [] as Array<{ username: string; name: string; weekly: number[]; total: number }>, weekCount: 4, grandTotal: 0 };
+    const [yearStr, monthStr] = statsMonth.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    if (!year || !month) return { rows: [] as Array<{ username: string; name: string; weekly: number[]; total: number }>, weekCount: 4, grandTotal: 0 };
+
+    const maxDay = new Date(year, month, 0).getDate();
+    const weekCount = Math.ceil(maxDay / 7);
+    const perUser = new Map<string, { username: string; name: string; weekly: number[]; total: number }>();
+
+    const relevantEvents = calendarEvents.filter((event) => {
+      if (!SUPPORT_EVENT_TYPES.has(event.type)) return false;
+      const eventDate = toDate(event.start);
+      if (!eventDate) return false;
+      return eventDate.getFullYear() === year && eventDate.getMonth() + 1 === month;
+    });
+
+    relevantEvents.forEach((event) => {
+      const eventDate = toDate(event.start);
+      if (!eventDate) return;
+      const week = getWeekOfMonth(eventDate);
+      const username = event.createdBy || event.assignee || '';
+      if (!username) return;
+      const foundUser = users.find((u) => u.username === username);
+      const name = foundUser?.display_name || event.createdByName || username;
+      const score = getSupportDayScore(event);
+      if (score <= 0) return;
+
+      const row = perUser.get(username) || { username, name, weekly: Array.from({ length: weekCount }, () => 0), total: 0 };
+      if (!row.weekly[week - 1]) row.weekly[week - 1] = 0;
+      row.weekly[week - 1] += score;
+      row.total += score;
+      perUser.set(username, row);
+    });
+
+    const rows = Array.from(perUser.values())
+      .map((row) => ({
+        ...row,
+        weekly: row.weekly.map((value) => Number(value.toFixed(2))),
+        total: Number(row.total.toFixed(2))
+      }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'ko'));
+
+    const grandTotal = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+    return { rows, weekCount, grandTotal };
+  }, [isAdmin, statsMonth, calendarEvents, users]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -249,6 +327,74 @@ const ClientSupportPage: React.FC = () => {
         <StatCard title="지원 고객사 수" value={summary.totalCustomers} />
         <StatCard title="조회 기간" value={`${startDate} ~ ${endDate}`} />
       </div>
+
+      {isAdmin && (
+        <Card>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">사용자 지원일 통계</h3>
+              <p className="text-xs text-slate-500 mt-1">기준: 오전/오후 0.5일, 전일 1일, 야간 (지원시간/8) x 1.5일</p>
+            </div>
+            <div className="w-full md:w-52">
+              <label htmlFor="support-stats-month" className="block text-sm font-semibold text-slate-700 mb-2">
+                통계 월
+              </label>
+              <input
+                id="support-stats-month"
+                type="month"
+                value={statsMonth}
+                onChange={(e) => setStatsMonth(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+              />
+            </div>
+          </div>
+
+          {supportDayStats.rows.length === 0 ? (
+            <p className="text-sm text-slate-500">선택한 월의 사용자 지원 내역이 없습니다.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                    <th className="px-3 py-2 text-left font-semibold">사용자</th>
+                    {Array.from({ length: supportDayStats.weekCount }, (_, i) => (
+                      <th key={`week-${i + 1}`} className="px-3 py-2 text-right font-semibold">
+                        {i + 1}주
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-right font-semibold">당월 합계(일)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supportDayStats.rows.map((row) => (
+                    <tr key={row.username} className="border-b border-slate-100">
+                      <td className="px-3 py-2 text-slate-900">{row.name}</td>
+                      {Array.from({ length: supportDayStats.weekCount }, (_, i) => (
+                        <td key={`${row.username}-week-${i + 1}`} className="px-3 py-2 text-right text-slate-700">
+                          {(row.weekly[i] || 0).toFixed(2)}
+                        </td>
+                      ))}
+                      <td className="px-3 py-2 text-right font-semibold text-blue-700">{row.total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-blue-50">
+                    <td className="px-3 py-2 font-semibold text-slate-900">전체 합계</td>
+                    {Array.from({ length: supportDayStats.weekCount }, (_, i) => {
+                      const weekSum = supportDayStats.rows.reduce((sum, row) => sum + (row.weekly[i] || 0), 0);
+                      return (
+                        <td key={`total-week-${i + 1}`} className="px-3 py-2 text-right font-semibold text-slate-800">
+                          {weekSum.toFixed(2)}
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-2 text-right font-bold text-blue-700">{supportDayStats.grandTotal.toFixed(2)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h3 className="text-base font-semibold text-slate-900 mb-3">지원 고객사</h3>

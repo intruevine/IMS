@@ -1,9 +1,9 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/core/state/store';
 import { ConfirmModal, Toast } from '@/shared/components/ui';
 
-type MenuIcon = 'dashboard' | 'contracts' | 'assets' | 'members' | 'calendar' | 'support' | 'reports' | 'api' | 'settings';
+type MenuIcon = 'dashboard' | 'contracts' | 'assets' | 'members' | 'calendar' | 'support' | 'notice' | 'reports' | 'api' | 'settings';
 
 type MenuItem = {
   path: string;
@@ -13,6 +13,7 @@ type MenuItem = {
 
 const publicMenuItems: MenuItem[] = [
   { path: '/', label: '대시보드', icon: 'dashboard' },
+  { path: '/notices', label: '공지사항', icon: 'notice' },
   { path: '/contracts', label: '계약 관리', icon: 'contracts' },
   { path: '/assets', label: '자산 조회', icon: 'assets' },
   { path: '/project-members', label: '프로젝트 현황', icon: 'members' },
@@ -64,6 +65,12 @@ function MenuIconView({ icon }: { icon: MenuIcon }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8m-8 4h5m-7 7a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2v4l4 4v6a2 2 0 01-2 2H6z" />
         </svg>
       );
+    case 'notice':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.5-1.5a2 2 0 01-.5-1.4V10a6 6 0 10-12 0v4.1a2 2 0 01-.5 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      );
     case 'reports':
       return (
         <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,12 +106,20 @@ const MainLayout: React.FC = () => {
   const showToast = useAppStore((state) => state.showToast);
 
   const roleLabel = role === 'admin' ? '관리자' : role === 'manager' ? '중간 관리자' : '일반 사용자';
+  const defaultBrandLogoSrc = `${import.meta.env.BASE_URL}icon-192x192.png`;
+  const [brandLogoSrc, setBrandLogoSrc] = useState(defaultBrandLogoSrc);
+  const brandLogoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const checkScreenSize = () => setIsMobile(window.innerWidth < 900);
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  useEffect(() => {
+    const savedLogo = localStorage.getItem('ims-brand-logo');
+    if (savedLogo) setBrandLogoSrc(savedLogo);
   }, []);
 
   if (location.pathname === '/settings' && role !== 'admin') {
@@ -121,13 +136,50 @@ const MainLayout: React.FC = () => {
     navigate('/login');
   };
 
+  const handleBrandLogoClick = () => {
+    if (role !== 'admin') return;
+    brandLogoInputRef.current?.click();
+  };
+
+  const handleBrandLogoChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('이미지 파일만 업로드할 수 있습니다', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) return;
+      setBrandLogoSrc(result);
+      localStorage.setItem('ims-brand-logo', result);
+      showToast('로고가 변경되었습니다', 'success');
+    };
+    reader.onerror = () => {
+      showToast('로고 업로드 중 오류가 발생했습니다', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      <input ref={brandLogoInputRef} type="file" accept="image/*" className="hidden" onChange={handleBrandLogoChange} />
       {isMobile && (
         <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">IMS</div>
-            <span className="font-bold text-slate-900">Intruevine IMS</span>
+            <button
+              type="button"
+              onClick={handleBrandLogoClick}
+              className={role === 'admin' ? 'cursor-pointer' : 'cursor-default'}
+              aria-label="브랜드 로고"
+              title={role === 'admin' ? '클릭하여 로고 업로드' : '브랜드 로고'}
+            >
+              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
+            </button>
+            <span className="font-bold text-slate-900 text-sm">INTRUEVINE 통합 고객지원관리시스템</span>
           </div>
           <button
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -150,10 +202,18 @@ const MainLayout: React.FC = () => {
       {!isMobile && (
         <aside className="w-64 bg-white border-r border-slate-200 fixed h-full flex flex-col">
           <div className="h-16 flex items-center px-5 border-b border-slate-200">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white mr-3 text-xs font-bold">IMS</div>
+            <button
+              type="button"
+              onClick={handleBrandLogoClick}
+              className={`mr-3 ${role === 'admin' ? 'cursor-pointer' : 'cursor-default'}`}
+              aria-label="브랜드 로고"
+              title={role === 'admin' ? '클릭하여 로고 업로드' : '브랜드 로고'}
+            >
+              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
+            </button>
             <div>
-              <h1 className="font-bold text-slate-900">Intruevine</h1>
-              <p className="text-xs text-slate-400">IMS</p>
+              <h1 className="font-bold text-slate-900 text-sm">INTRUEVINE</h1>
+              <p className="text-xs text-slate-400">통합 고객지원관리시스템</p>
             </div>
           </div>
 
@@ -194,7 +254,7 @@ const MainLayout: React.FC = () => {
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <title>Logout</title>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m6.364 2.636a9 9 0 11-12.728 0" />
                 </svg>
               </button>
             </div>
@@ -247,7 +307,7 @@ const MainLayout: React.FC = () => {
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <title>Logout</title>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m6.364 2.636a9 9 0 11-12.728 0" />
                 </svg>
                 <span className="font-medium">로그아웃</span>
               </button>
@@ -271,6 +331,7 @@ const MainLayout: React.FC = () => {
         message="로그아웃 하시겠습니까?"
         confirmText="로그아웃"
         cancelText="취소"
+        icon="logout"
       />
     </div>
   );
