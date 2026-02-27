@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { hasAuthToken } from '@/core/api/client';
@@ -16,6 +16,7 @@ import ReportsPage from '@/features/reports/ReportsPage';
 import SettingsPage from '@/features/settings/SettingsPage';
 import ProjectMembersPage from '@/features/project-members/ProjectMembersPage';
 import ApiTestPage from '@/features/api-test/ApiTestPage';
+import NoticesPage from '@/features/notices/NoticesPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
@@ -36,8 +37,7 @@ function App() {
   }, [isAuthenticated, loadDashboardData]);
 
   return (
-    <BrowserRouter
-      basename="/MA"
+    <HashRouter
       future={{
         v7_relativeSplatPath: true,
         v7_startTransition: true,
@@ -59,13 +59,15 @@ function App() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="client-support-report" element={<ClientSupportReportPage />} />
           <Route path="client-support" element={<ClientSupportPage />} />
+          <Route path="notices" element={<NoticesPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="project-members" element={<ProjectMembersPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="api-test" element={<ApiTestPage />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

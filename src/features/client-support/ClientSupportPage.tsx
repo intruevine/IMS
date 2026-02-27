@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   Bar,
@@ -19,6 +19,7 @@ import { useAppStore } from '@/core/state/store';
 import { Card, Button } from '@/shared/components/ui';
 
 type SupportMode = 'personal' | 'team';
+const TEAM_OPTION_VALUE = '__team__';
 
 const SUPPORT_EVENT_TYPES = new Set(['remote_support', 'maintenance', 'sales_support', 'meeting']);
 const TYPE_LABEL: Record<string, string> = {
@@ -110,21 +111,48 @@ const ClientSupportPage: React.FC = () => {
   }, [isAdmin, loadUsers]);
 
   useEffect(() => {
-    if (user?.username && !selectedUsername) {
+    if (selectedUsername) return;
+    if (isAdmin) {
+      setSelectedUsername(TEAM_OPTION_VALUE);
+      return;
+    }
+    if (user?.username) {
       setSelectedUsername(user.username);
     }
-  }, [user?.username, selectedUsername]);
+  }, [isAdmin, user?.username, selectedUsername]);
 
   const userOptions = useMemo(
-    () =>
-      users
+    () => {
+      const baseOptions = users
         .filter((u) => Boolean(u.username))
-        .map((u) => ({ username: u.username, label: `${u.display_name || u.username} (${u.username})` }))
-        .sort((a, b) => a.label.localeCompare(b.label, 'ko')),
-    [users]
+        .map((u) => ({ username: u.username, label: `${u.display_name || u.username} (${u.username})`, role: u.role }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+
+      if (!isAdmin) return baseOptions.map(({ username, label }) => ({ username, label }));
+
+      return [{ username: TEAM_OPTION_VALUE, label: '팀 (전체, 통합관리자 제외)' }, ...baseOptions.map(({ username, label }) => ({ username, label }))];
+    },
+    [users, isAdmin]
+  );
+
+  const userRoleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((u) => {
+      if (u.username) map.set(u.username, u.role || 'user');
+    });
+    return map;
+  }, [users]);
+
+  const isNonAdminUser = useCallback(
+    (username?: string) => {
+      if (!username) return false;
+      return userRoleMap.get(username) !== 'admin';
+    },
+    [userRoleMap]
   );
 
   const selectedUserLabel = useMemo(() => {
+    if (selectedUsername === TEAM_OPTION_VALUE) return '팀 (전체, 통합관리자 제외)';
     const found = userOptions.find((u) => u.username === selectedUsername);
     return found?.label || selectedUsername || user?.display_name || '-';
   }, [selectedUsername, user?.display_name, userOptions]);
@@ -139,13 +167,17 @@ const ClientSupportPage: React.FC = () => {
       if (!SUPPORT_EVENT_TYPES.has(event.type)) return false;
       const eventDate = toDate(event.start);
       if (!eventDate || eventDate < start || eventDate > end) return false;
+      const actorUsername = event.createdBy || event.assignee || '';
 
       if (mode === 'personal') {
+        if (isAdmin && targetUsername === TEAM_OPTION_VALUE) {
+          return isNonAdminUser(actorUsername);
+        }
         return event.createdBy === targetUsername || event.assignee === targetUsername;
       }
-      return Boolean(event.createdBy && event.createdBy !== currentUsername);
+      return isNonAdminUser(actorUsername);
     });
-  }, [calendarEvents, startDate, endDate, mode, user?.username, isAdmin, selectedUsername]);
+  }, [calendarEvents, startDate, endDate, mode, user?.username, isAdmin, selectedUsername, isNonAdminUser]);
 
   const summary = useMemo(() => {
     const daySet = new Set<string>();
@@ -234,6 +266,13 @@ const ClientSupportPage: React.FC = () => {
       const week = getWeekOfMonth(eventDate);
       const username = event.createdBy || event.assignee || '';
       if (!username) return;
+      if (mode === 'team') {
+        if (!isNonAdminUser(username)) return;
+      } else if (selectedUsername === TEAM_OPTION_VALUE) {
+        if (!isNonAdminUser(username)) return;
+      } else {
+        if (username !== selectedUsername) return;
+      }
       const foundUser = users.find((u) => u.username === username);
       const name = foundUser?.display_name || event.createdByName || username;
       const score = getSupportDayScore(event);
@@ -256,7 +295,7 @@ const ClientSupportPage: React.FC = () => {
 
     const grandTotal = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
     return { rows, weekCount, grandTotal };
-  }, [isAdmin, statsMonth, calendarEvents, users]);
+  }, [isAdmin, mode, selectedUsername, statsMonth, calendarEvents, users, isNonAdminUser]);
 
   return (
     <div className="space-y-6">
@@ -298,7 +337,7 @@ const ClientSupportPage: React.FC = () => {
           <div className="md:col-span-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
             <p className="text-xs text-slate-600">사용자</p>
             <p className="text-lg font-semibold text-blue-700">
-              {mode === 'personal' ? selectedUserLabel : `${user?.display_name || '-'} 제외 전체`}
+              {mode === 'personal' ? selectedUserLabel : '팀 (전체, 통합관리자 제외)'}
             </p>
           </div>
           {isAdmin && mode === 'personal' && (
@@ -493,3 +532,4 @@ const ClientSupportPage: React.FC = () => {
 };
 
 export default ClientSupportPage;
+

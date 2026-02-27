@@ -50,15 +50,19 @@ window.addEventListener('unhandledrejection', (event) => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Force an update check so long-lived clients pick up the latest build faster.
+    // Disable stale SW cache issues in production by unregistering old workers and cache entries.
     setTimeout(async () => {
       try {
         const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.update()));
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        }
       } catch (error) {
-        console.error('Service worker update check failed:', error);
+        console.error('Service worker cleanup failed:', error);
       }
-    }, 1000);
+    }, 500);
   });
 }
 
