@@ -48,24 +48,6 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled rejection:', event.reason);
 });
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    // Disable stale SW cache issues in production by unregistering old workers and cache entries.
-    setTimeout(async () => {
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.unregister()));
-        if ('caches' in window) {
-          const cacheNames = await caches.keys();
-          await Promise.all(cacheNames.map((name) => caches.delete(name)));
-        }
-      } catch (error) {
-        console.error('Service worker cleanup failed:', error);
-      }
-    }, 500);
-  });
-}
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RootErrorBoundary>
@@ -73,3 +55,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </RootErrorBoundary>
   </React.StrictMode>,
 );
+

@@ -1,4 +1,4 @@
-﻿import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -18,7 +18,6 @@ export default defineConfig({
       },
       workbox: {
         // Ensure newly deployed SW takes over quickly and old caches are cleaned.
-        clientsClaim: true,
         skipWaiting: true,
         cleanupOutdatedCaches: true
       },
@@ -62,3 +61,4 @@ export default defineConfig({
     sourcemap: true
   }
 });
+

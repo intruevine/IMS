@@ -250,6 +250,82 @@ async function initDatabase() {
       )
     `);
 
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS notices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(300) NOT NULL,
+        content TEXT NOT NULL,
+        is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+        created_by VARCHAR(50),
+        updated_by VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_notice_created_at (created_at),
+        INDEX idx_notice_pinned (is_pinned)
+      )
+    `);
+    await conn.query('ALTER TABLE notices ADD COLUMN IF NOT EXISTS is_pinned TINYINT(1) NOT NULL DEFAULT 0 AFTER content');
+    await conn.query('ALTER TABLE notices ADD COLUMN IF NOT EXISTS created_by VARCHAR(50) NULL AFTER is_pinned');
+    await conn.query('ALTER TABLE notices ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50) NULL AFTER created_by');
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS notice_files (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        notice_id INT NOT NULL,
+        original_name VARCHAR(255) NOT NULL,
+        stored_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size BIGINT DEFAULT 0,
+        uploaded_by VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (notice_id) REFERENCES notices(id) ON DELETE CASCADE,
+        INDEX idx_notice_file_notice_id (notice_id)
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS client_support_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        contract_id INT NULL,
+        customer_name VARCHAR(200) NOT NULL,
+        support_summary VARCHAR(500) NULL,
+        system_name VARCHAR(300) NULL,
+        support_types TEXT NULL,
+        requester VARCHAR(100) NULL,
+        request_at DATETIME NULL,
+        assignee VARCHAR(100) NULL,
+        completed_at DATETIME NULL,
+        request_detail TEXT NULL,
+        cause TEXT NULL,
+        support_detail TEXT NULL,
+        overall_opinion TEXT NULL,
+        note TEXT NULL,
+        created_by VARCHAR(50) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE SET NULL,
+        INDEX idx_csr_created_at (created_at),
+        INDEX idx_csr_customer_name (customer_name),
+        INDEX idx_csr_contract_id (contract_id)
+      )
+    `);
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS contract_id INT NULL AFTER id');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS customer_name VARCHAR(200) NOT NULL AFTER contract_id');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS support_summary VARCHAR(500) NULL AFTER customer_name');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS system_name VARCHAR(300) NULL AFTER support_summary');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS support_types TEXT NULL AFTER system_name');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS requester VARCHAR(100) NULL AFTER support_types');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS request_at DATETIME NULL AFTER requester');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS assignee VARCHAR(100) NULL AFTER request_at');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS completed_at DATETIME NULL AFTER assignee');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS request_detail TEXT NULL AFTER completed_at');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS cause TEXT NULL AFTER request_detail');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS support_detail TEXT NULL AFTER cause');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS overall_opinion TEXT NULL AFTER support_detail');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS note TEXT NULL AFTER overall_opinion');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS created_by VARCHAR(50) NULL AFTER note');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER created_by');
+    await conn.query('ALTER TABLE client_support_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+
     // Ensure KR national holidays (2026~2030) are managed in additional_holidays.
     await syncNationalHolidays(conn);
     

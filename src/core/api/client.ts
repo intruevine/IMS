@@ -4,13 +4,18 @@ const configuredApiBase = configuredApiBaseRaw ? configuredApiBaseRaw.replace(/\
 const isAbsoluteHttpUrl = (value?: string | null) => Boolean(value && /^https?:\/\//i.test(value));
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 const canonicalProdApiBase = import.meta.env.PROD ? 'https://api.intruevine.dscloud.biz/api' : null;
+const canonicalProdApiFallbackBase = import.meta.env.PROD ? 'https://intruevine.dscloud.biz/api' : null;
 const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
 const appScopedApiBase =
   appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
 
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
-  : [isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null, canonicalProdApiBase];
+  : [
+      isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null,
+      canonicalProdApiBase,
+      canonicalProdApiFallbackBase
+    ];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
@@ -82,9 +87,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
         const errorMessage = messageFromJson || messageFromText || `HTTP ${response.status} ${response.statusText || ''}`.trim();
         const apiError = new APIError(errorMessage, response.status);
 
-        // Try another base URL only when endpoint is not found.
+        // Try another base URL on probable gateway/base-url issues.
         const looksLikeBaseUrlMismatch = /public base url/i.test(responseText);
-        if ((response.status === 404 || looksLikeBaseUrlMismatch) && i < API_BASE_URL_CANDIDATES.length - 1) {
+        const isRetryableServerError = response.status >= 500 && response.status <= 599;
+        if ((response.status === 404 || looksLikeBaseUrlMismatch || isRetryableServerError) && i < API_BASE_URL_CANDIDATES.length - 1) {
           lastError = apiError;
           continue;
         }
@@ -388,6 +394,115 @@ export const holidaysAPI = {
     })
 };
 
+export const noticesAPI = {
+  getAll: () => fetchAPI<any[]>('/notices'),
+
+  create: (data: { title: string; content: string; is_pinned?: boolean }) =>
+    fetchAPI<{ id: number; message: string }>('/notices', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  update: (id: number, data: { title: string; content: string; is_pinned?: boolean }) =>
+    fetchAPI<{ message: string }>(`/notices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
+  delete: (id: number) =>
+    fetchAPI<{ message: string }>(`/notices/${id}`, {
+      method: 'DELETE'
+    }),
+
+  getFiles: (id: number) => fetchAPI<any[]>(`/notices/${id}/files`),
+
+  uploadFiles: (id: number, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    return fetchAPI<{ files: any[]; message: string }>(`/notices/${id}/files`, {
+      method: 'POST',
+      body: formData
+    });
+  },
+
+  deleteFile: (id: number, fileId: number) =>
+    fetchAPI<{ message: string }>(`/notices/${id}/files/${fileId}`, {
+      method: 'DELETE'
+    }),
+
+  downloadFile: async (id: number, fileId: number, fileName: string) => {
+    const token = getAuthToken();
+    let lastError: unknown = null;
+
+    for (let i = 0; i < API_BASE_URL_CANDIDATES.length; i += 1) {
+      const apiBase = API_BASE_URL_CANDIDATES[i];
+      const url = `${apiBase}/notices/${id}/files/${fileId}/download`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          const text = await response.text().catch(() => '');
+          const errorMessage = text || `HTTP ${response.status}`;
+          const error = new APIError(errorMessage, response.status);
+          if (response.status === 404 && i < API_BASE_URL_CANDIDATES.length - 1) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = fileName || 'download';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(downloadUrl);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (error instanceof TypeError && i < API_BASE_URL_CANDIDATES.length - 1) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new APIError('Download failed', 500);
+  }
+};
+
+export const clientSupportReportsAPI = {
+  getAll: () => fetchAPI<any[]>('/client-support-reports'),
+
+  create: (data: {
+    customerName: string;
+    contractId?: number | null;
+    supportSummary?: string;
+    systemName?: string;
+    supportTypes?: string[];
+    requester?: string;
+    requestAt?: string;
+    assignee?: string;
+    completedAt?: string;
+    requestDetail?: string;
+    cause?: string;
+    supportDetail?: string;
+    overallOpinion?: string;
+    note?: string;
+  }) =>
+    fetchAPI<{ id: number; message: string }>('/client-support-reports', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+};
+
 export { APIError };
 export default {
   contracts: contractsAPI,
@@ -395,7 +510,9 @@ export default {
   users: usersAPI,
   events: eventsAPI,
   members: membersAPI,
-  holidays: holidaysAPI
+  holidays: holidaysAPI,
+  notices: noticesAPI,
+  clientSupportReports: clientSupportReportsAPI
 };
 
 

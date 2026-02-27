@@ -57,6 +57,8 @@ const usersRouter = require('./routes/users');
 const eventsRouter = require('./routes/events');
 const membersRouter = require('./routes/members');
 const holidaysRouter = require('./routes/holidays');
+const noticesRouter = require('./routes/notices');
+const clientSupportReportsRouter = require('./routes/client-support-reports');
 
 app.use('/api/contracts', contractsRouter);
 app.use('/api/assets', assetsRouter);
@@ -64,6 +66,8 @@ app.use('/api/users', usersRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/members', membersRouter);
 app.use('/api/holidays', holidaysRouter);
+app.use('/api/notices', noticesRouter);
+app.use('/api/client-support-reports', clientSupportReportsRouter);
 
 // Support /MA/ base path for deployed frontend
 app.use('/MA/api/contracts', contractsRouter);
@@ -72,6 +76,8 @@ app.use('/MA/api/users', usersRouter);
 app.use('/MA/api/events', eventsRouter);
 app.use('/MA/api/members', membersRouter);
 app.use('/MA/api/holidays', holidaysRouter);
+app.use('/MA/api/notices', noticesRouter);
+app.use('/MA/api/client-support-reports', clientSupportReportsRouter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -91,6 +97,8 @@ app.get('/', (req, res) => {
       events: '/api/events',
       holidays: '/api/holidays',
       members: '/api/members',
+      clientSupportReports: '/api/client-support-reports',
+      notices: '/api/notices',
       health: '/health'
     },
     health: '/health'
@@ -106,7 +114,9 @@ app.get('/api', (req, res) => {
       assets: '/api/assets',
       events: '/api/events',
       holidays: '/api/holidays',
-      members: '/api/members'
+      members: '/api/members',
+      clientSupportReports: '/api/client-support-reports',
+      notices: '/api/notices'
     }
   });
 });
