@@ -9,30 +9,30 @@ function isAdmin(req) {
 
 function toRow(holiday) {
   let dateStr = holiday.date;
-  console.log('toRow input:', { id: holiday.id, rawDate: holiday.date, type: typeof holiday.date });
   
   if (holiday.date instanceof Date) {
-    // Convert Date to YYYY-MM-DD without timezone issues
     const d = holiday.date;
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     dateStr = `${year}-${month}-${day}`;
   } else if (holiday.date && typeof holiday.date === 'string') {
-    // Check if it's already ISO format (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(holiday.date)) {
       dateStr = holiday.date;
+    } else if (/^\d{4}-\d{2}-\d{2}T/.test(holiday.date)) {
+      dateStr = holiday.date.slice(0, 10);
     } else {
-      // Parse locale date string like "Mon Mar 02 2026"
       const d = new Date(holiday.date);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      dateStr = `${year}-${month}-${day}`;
+      if (!Number.isNaN(d.getTime())) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+      } else {
+        dateStr = '';
+      }
     }
   }
-  
-  console.log('toRow output:', { id: holiday.id, dateStr });
   return {
     ...holiday,
     id: String(holiday.id),
@@ -49,9 +49,7 @@ router.get('/', authenticateToken, async (_req, res) => {
        FROM additional_holidays
        ORDER BY date ASC, name ASC`
     );
-    console.log('GET /api/holidays - raw rows from DB:', rows.map(r => ({ id: r.id, date: r.date, type: typeof r.date })));
-    const transformed = rows.map(toRow);
-    console.log('GET /api/holidays - transformed:', transformed.map(r => ({ id: r.id, date: r.date })));
+    const transformed = rows.map(toRow).filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date));
     res.json(transformed);
   } catch (error) {
     console.error('Error fetching additional holidays:', error);

@@ -83,6 +83,22 @@ function toDateTimeLocalInput(value?: string) {
   return '';
 }
 
+function normalizeHolidayDate(value?: string): string | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const isoPrefix = raw.match(/^(\d{4}-\d{2}-\d{2})T/);
+  if (isoPrefix) return isoPrefix[1];
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const EVENT_TYPE_OPTIONS: { value: CalendarEventType; label: string; color: string }[] = [
   { value: 'inspection', label: '점검', color: '#3b82f6' },
   { value: 'maintenance', label: '유지보수', color: '#22c55e' },
@@ -391,10 +407,7 @@ const CalendarPage: React.FC = () => {
   const deleteEvent = useAppStore((state) => state.deleteCalendarEvent);
   const generateCalendarEvents = useAppStore((state) => state.generateCalendarEventsFromData);
   const showToast = useAppStore((state) => state.showToast);
-  const additionalHolidays = useAppStore((state) => {
-    console.log('useAppStore selector called, additionalHolidays:', state.additionalHolidays.length);
-    return state.additionalHolidays;
-  });
+  const additionalHolidays = useAppStore((state) => state.additionalHolidays);
   const holidayLoadError = useAppStore((state) => state.holidayLoadError);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -422,38 +435,6 @@ const CalendarPage: React.FC = () => {
       showToast('공휴일 데이터를 불러오지 못했습니다', 'warning');
     }
   }, [holidayLoadError, showToast]);
-
-  // Debug: log when additionalHolidays changes
-  useEffect(() => {
-    console.log('Additional holidays updated:', additionalHolidays.length, additionalHolidays);
-    console.log('Building customHolidayEvents...');
-    // Force recompute customHolidayEvents
-    const events = additionalHolidays.map((holiday) => {
-      const color = holiday.type === 'national' ? NATIONAL_HOLIDAY_COLOR : COMPANY_HOLIDAY_COLOR;
-      console.log('Holiday raw date from store:', holiday.date, typeof holiday.date);
-      return {
-        id: `custom-holiday-${holiday.id}`,
-        title: `${holiday.type === 'national' ? '국가 공휴일' : '기업휴일'} · ${holiday.name}`,
-        start: holiday.date,
-        allDay: true,
-        display: 'block',
-        backgroundColor: color,
-        borderColor: color,
-        textColor: '#ffffff',
-        extendedProps: {
-          isHoliday: true,
-          holidayType: holiday.type,
-          holidayName: holiday.name
-        }
-      };
-    });
-    console.log('Built customHolidayEvents directly:', events.length, events.map((e: any) => ({ id: e.id, title: e.title, start: e.start })));
-    // Refetch calendar events when additionalHolidays changes
-    const api = calendarRef.current?.getApi();
-    if (api) {
-      api.refetchEvents();
-    }
-  }, [additionalHolidays]);
 
   useEffect(() => {
     if (role === 'admin') {
@@ -563,19 +544,11 @@ const CalendarPage: React.FC = () => {
   };
 
   const customHolidayEvents = useMemo(() => {
-    console.log('customHolidayEvents useMemo running, additionalHolidays:', additionalHolidays.length, additionalHolidays);
-    const events = additionalHolidays.map((holiday) => {
+    return additionalHolidays
+      .map((holiday) => {
       const color = holiday.type === 'national' ? NATIONAL_HOLIDAY_COLOR : COMPANY_HOLIDAY_COLOR;
-      // Ensure date is in YYYY-MM-DD format
-      let dateStr = holiday.date;
-      if (dateStr && typeof dateStr === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        // If it's not ISO format, try to parse and convert
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-          dateStr = d.toISOString().slice(0, 10);
-        }
-      }
-      console.log('Holiday date conversion:', holiday.date, '->', dateStr);
+      const dateStr = normalizeHolidayDate(holiday.date);
+      if (!dateStr) return null;
       return {
         id: `custom-holiday-${holiday.id}`,
         title: `${holiday.type === 'national' ? '국가 공휴일' : '기업휴일'} · ${holiday.name}`,
@@ -592,20 +565,15 @@ const CalendarPage: React.FC = () => {
         },
         classNames: ['holiday-event', holiday.type === 'national' ? 'national-holiday' : 'company-holiday']
       };
-    });
-    console.log('customHolidayEvents useMemo result:', events.length, events);
-    return events;
+    })
+      .filter(Boolean);
   }, [additionalHolidays]);
-
-  // Debug: log customHolidayEvents
-  useEffect(() => {
-    console.log('Custom holiday events:', customHolidayEvents.length, customHolidayEvents.map((e: any) => ({ id: e.id, title: e.title, start: e.start, allDay: e.allDay })));
-  }, [customHolidayEvents]);
 
   const holidayDateSet = useMemo(() => {
     const set = new Set<string>();
     additionalHolidays.forEach((holiday) => {
-      set.add(holiday.date.slice(0, 10));
+      const normalized = normalizeHolidayDate(holiday.date);
+      if (normalized) set.add(normalized);
     });
     return set;
   }, [additionalHolidays]);
@@ -629,43 +597,14 @@ const CalendarPage: React.FC = () => {
   }, []);
 
   const calendarEvents = useMemo(() => {
-    console.log('Building calendar events:', {
-      appEventsCount: appEvents.length,
-      customHolidayEventsCount: customHolidayEvents.length
-    });
     const events = [...appEvents, ...customHolidayEvents];
-    console.log('Combined events before clone:', events.length, events.filter((e: any) => String(e.id).includes('custom-holiday')).length, 'custom holidays');
-    
-    // Ensure all dates are in ISO format before cloning
     const sanitizedEvents = events.map((e: any) => ({
       ...e,
       start: typeof e.start === 'string' ? e.start : e.start instanceof Date ? e.start.toISOString().slice(0, 10) : e.start,
       end: e.end ? (typeof e.end === 'string' ? e.end : e.end instanceof Date ? e.end.toISOString().slice(0, 10) : e.end) : undefined
     }));
-    
-    // Check each custom holiday event
-    const customEvents = sanitizedEvents.filter((e: any) => String(e.id).includes('custom-holiday'));
-    customEvents.forEach((e: any, i: number) => {
-      console.log(`Custom holiday ${i} ALL PROPS:`, JSON.stringify(e, null, 2));
-    });
-    
-    console.log('Sanitized events:', sanitizedEvents.length, sanitizedEvents.filter((e: any) => String(e.id).includes('custom-holiday')).length, 'custom holidays');
     return sanitizedEvents;
   }, [appEvents, customHolidayEvents]);
-
-  // Debug: Check actual calendar events after render
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const api = calendarRef.current?.getApi();
-      if (api) {
-        const allEvents = api.getEvents();
-        console.log('FullCalendar internal events:', allEvents.length);
-        const customEvents = allEvents.filter((e: any) => String(e.id).includes('custom-holiday'));
-        console.log('Custom holidays in FullCalendar:', customEvents.length, customEvents.map((e: any) => ({ id: e.id, start: e.startStr, title: e.title })));
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [calendarEvents]);
 
   const resolveCreatorFullName = useCallback(
     (createdBy?: string, createdByName?: string) => {
