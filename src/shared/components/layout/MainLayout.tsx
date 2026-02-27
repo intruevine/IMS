@@ -17,6 +17,7 @@ const publicMenuItems: MenuItem[] = [
   { path: '/assets', label: '자산 조회', icon: 'assets' },
   { path: '/project-members', label: '프로젝트 현황', icon: 'members' },
   { path: '/calendar', label: '일정 관리', icon: 'calendar' },
+  { path: '/client-support-report', label: '고객지원보고서', icon: 'support' },
   { path: '/client-support', label: '고객지원현황', icon: 'support' },
   { path: '/reports', label: '보고서', icon: 'reports' }
 ];
