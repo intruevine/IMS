@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 import { useAppStore } from '@/core/state/store';
 import { assetsAPI, contractsAPI, eventsAPI, membersAPI } from '@/core/api/client';
 import { Button, Card, CardHeader, ConfirmModal, Input, Modal } from '@/shared/components/ui';
@@ -58,6 +59,50 @@ function toDateInputValue(value: string) {
   return '';
 }
 
+function normalizeHolidayUploadDate(value: unknown): string {
+  if (value === null || value === undefined) return '';
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) return '';
+    const year = String(parsed.y);
+    const month = String(parsed.m).padStart(2, '0');
+    const day = String(parsed.d).padStart(2, '0');
+    return `${year}${month}${day}`;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (/^\d{8}$/.test(raw)) return raw;
+  if (/^\d{4}[-./]\d{2}[-./]\d{2}$/.test(raw)) return raw.replace(/[-./]/g, '');
+
+  const digitsOnly = raw.replace(/\D/g, '');
+  if (/^\d{8}$/.test(digitsOnly)) return digitsOnly;
+
+  const parsedDate = new Date(raw);
+  if (Number.isNaN(parsedDate.getTime())) return '';
+  const year = String(parsedDate.getFullYear());
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function normalizeHolidayUploadType(value: unknown): HolidayType {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'national' || raw === '국가' || raw === '국가공휴일' || raw === '국가 공휴일') {
+    return 'national';
+  }
+  return 'company';
+}
+
+function pickHolidayCell(row: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+      return row[key];
+    }
+  }
+  return '';
+}
 const SettingsPage: React.FC = () => {
   const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
@@ -99,6 +144,8 @@ const SettingsPage: React.FC = () => {
     name: '',
     type: 'company' as HolidayType
   });
+  const holidayUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [isHolidayUploadSubmitting, setIsHolidayUploadSubmitting] = useState(false);
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [pendingRoleByUser, setPendingRoleByUser] = useState<Record<string, UserRole>>({});
 
@@ -341,6 +388,73 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleHolidayExcelUpload = async (file: File) => {
+    setIsHolidayUploadSubmitting(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        showToast('엑셀 시트를 찾을 수 없습니다', 'warning');
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[firstSheetName], {
+        defval: '',
+        raw: true
+      });
+
+      if (!rows.length) {
+        showToast('업로드할 공휴일 데이터가 없습니다', 'warning');
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const row of rows) {
+        const rawDate = pickHolidayCell(row, ['date', '날짜', '일자']);
+        const rawName = pickHolidayCell(row, ['name', '휴일명', '명칭']);
+        const rawType = pickHolidayCell(row, ['type', '유형', '휴일유형']);
+
+        const date = normalizeHolidayUploadDate(rawDate);
+        const name = String(rawName || '').trim();
+        const type = normalizeHolidayUploadType(rawType);
+
+        if (!date || !name) {
+          failCount += 1;
+          continue;
+        }
+
+        try {
+          await addAdditionalHoliday({ date, name, type });
+          successCount += 1;
+        } catch {
+          failCount += 1;
+        }
+      }
+
+      if (successCount > 0 && failCount === 0) {
+        showToast(`공휴일 ${successCount}건을 업로드했습니다`, 'success');
+      } else if (successCount > 0 && failCount > 0) {
+        showToast(`업로드 완료: 성공 ${successCount}건, 실패 ${failCount}건`, 'warning');
+      } else {
+        showToast('업로드에 실패했습니다. 파일 형식을 확인해 주세요', 'error');
+      }
+    } catch (error) {
+      console.error('Holiday excel upload error:', error);
+      showToast('엑셀 업로드 중 오류가 발생했습니다', 'error');
+    } finally {
+      setIsHolidayUploadSubmitting(false);
+    }
+  };
+
+  const handleHolidayExcelFileChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    await handleHolidayExcelUpload(file);
+  };
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
     logout();
@@ -554,6 +668,20 @@ const SettingsPage: React.FC = () => {
                   <Button variant="primary" onClick={handleSaveHoliday}>
                     {editingHolidayId ? '수정 저장' : '공휴일 추가'}
                   </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => holidayUploadInputRef.current?.click()}
+                    isLoading={isHolidayUploadSubmitting}
+                  >
+                    엑셀 업로드
+                  </Button>
+                  <input
+                    ref={holidayUploadInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={handleHolidayExcelFileChange}
+                  />
                   <Button variant="danger" onClick={handleClearAllHolidays}>
                     전체 삭제
                   </Button>
