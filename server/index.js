@@ -65,6 +65,14 @@ app.use('/api/events', eventsRouter);
 app.use('/api/members', membersRouter);
 app.use('/api/holidays', holidaysRouter);
 
+// Support /MA/ base path for deployed frontend
+app.use('/MA/api/contracts', contractsRouter);
+app.use('/MA/api/assets', assetsRouter);
+app.use('/MA/api/users', usersRouter);
+app.use('/MA/api/events', eventsRouter);
+app.use('/MA/api/members', membersRouter);
+app.use('/MA/api/holidays', holidaysRouter);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

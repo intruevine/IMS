@@ -119,6 +119,7 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     loadStats();
     loadAdditionalHolidays();
+    console.log('SettingsPage: loaded additional holidays');
     if (isAuthenticated && role === 'admin') {
       loadUsers();
       loadPendingUsers();

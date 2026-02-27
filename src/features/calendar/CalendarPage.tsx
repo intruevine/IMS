@@ -11,17 +11,8 @@ import koLocale from '@fullcalendar/core/locales/ko';
 import type { EventClickArg, DateSelectArg, EventHoveringArg } from '@fullcalendar/core';
 import type { EventContentArg } from '@fullcalendar/core';
 
-const HOLIDAY_YEARS = [2026, 2027, 2028, 2029, 2030];
-const HOLIDAY_API_BASE = 'https://date.nager.at/api/v3/publicholidays';
 const NATIONAL_HOLIDAY_COLOR = '#dc2626';
 const COMPANY_HOLIDAY_COLOR = '#14b8a6';
-
-interface HolidayApiItem {
-  date: string;
-  localName: string;
-  name: string;
-  types?: string[];
-}
 
 interface EventFormModalProps {
   isOpen: boolean;
@@ -384,7 +375,6 @@ const CalendarPage: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [calendarView, setCalendarView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'>('dayGridMonth');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [holidayEvents, setHolidayEvents] = useState<any[]>([]);
   const [hoveredEvent, setHoveredEvent] = useState<CalendarEvent | null>(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -448,56 +438,6 @@ const CalendarPage: React.FC = () => {
       api.changeView(calendarView);
     }
   }, [calendarView]);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadKoreanHolidays = async () => {
-      try {
-        const responses = await Promise.all(
-          HOLIDAY_YEARS.map((year) => fetch(`${HOLIDAY_API_BASE}/${year}/KR`))
-        );
-
-        const lists = await Promise.all(
-          responses.map(async (res) => {
-            if (!res.ok) return [] as HolidayApiItem[];
-            return (await res.json()) as HolidayApiItem[];
-          })
-        );
-
-        const mapped = lists
-          .flat()
-          .filter((h) => !h.types || h.types.includes('Public'))
-          .map((h, idx) => ({
-            id: `kr-holiday-${h.date}-${idx}`,
-            title: `공휴일 · ${h.localName || h.name}`,
-            start: h.date,
-            end: h.date,
-            allDay: true,
-            display: 'block',
-            backgroundColor: NATIONAL_HOLIDAY_COLOR,
-            borderColor: NATIONAL_HOLIDAY_COLOR,
-            textColor: '#ffffff',
-            classNames: ['holiday-event', 'national-holiday'],
-            extendedProps: {
-              isHoliday: true,
-              holidayName: h.localName || h.name
-            }
-          }));
-
-        if (active) {
-          setHolidayEvents(mapped);
-        }
-      } catch (error) {
-        console.error('Failed to load KR holidays:', error);
-      }
-    };
-
-    loadKoreanHolidays();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const handleAutoGenerate = async () => {
     setIsGenerating(true);
@@ -635,16 +575,11 @@ const CalendarPage: React.FC = () => {
 
   const holidayDateSet = useMemo(() => {
     const set = new Set<string>();
-    holidayEvents.forEach((event) => {
-      if (typeof event.start === 'string') {
-        set.add(event.start.slice(0, 10));
-      }
-    });
     additionalHolidays.forEach((holiday) => {
       set.add(holiday.date.slice(0, 10));
     });
     return set;
-  }, [holidayEvents, additionalHolidays]);
+  }, [additionalHolidays]);
 
   const getDayCellClasses = useCallback(
     (arg: any) => {
@@ -667,10 +602,9 @@ const CalendarPage: React.FC = () => {
   const calendarEvents = useMemo(() => {
     console.log('Building calendar events:', {
       appEventsCount: appEvents.length,
-      holidayEventsCount: holidayEvents.length,
       customHolidayEventsCount: customHolidayEvents.length
     });
-    const events = [...appEvents, ...holidayEvents, ...customHolidayEvents];
+    const events = [...appEvents, ...customHolidayEvents];
     console.log('Combined events before clone:', events.length, events.filter((e: any) => String(e.id).includes('custom-holiday')).length, 'custom holidays');
     
     // Ensure all dates are in ISO format before cloning
@@ -688,7 +622,7 @@ const CalendarPage: React.FC = () => {
     
     console.log('Sanitized events:', sanitizedEvents.length, sanitizedEvents.filter((e: any) => String(e.id).includes('custom-holiday')).length, 'custom holidays');
     return sanitizedEvents;
-  }, [appEvents, holidayEvents, customHolidayEvents]);
+  }, [appEvents, customHolidayEvents]);
 
   // Debug: Check actual calendar events after render
   useEffect(() => {
