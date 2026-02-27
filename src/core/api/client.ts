@@ -1,5 +1,7 @@
 // API 기본 URL 설정
-const configuredApiBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const configuredApiBaseRaw = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+const configuredApiBase = configuredApiBaseRaw ? configuredApiBaseRaw.replace(/\/+$/, '') : undefined;
+const isAbsoluteHttpUrl = (value?: string | null) => Boolean(value && /^https?:\/\//i.test(value));
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 const canonicalProdApiBase = import.meta.env.PROD ? 'https://api.intruevine.dscloud.biz/api' : null;
 const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
@@ -8,7 +10,7 @@ const appScopedApiBase =
 
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
-  : [configuredApiBase, canonicalProdApiBase];
+  : [isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null, canonicalProdApiBase];
 
 const API_BASE_URL_CANDIDATES = Array.from(
   new Set(
