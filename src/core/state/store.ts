@@ -805,7 +805,17 @@ export const useAppStore = create<AppState>()(
 
         clearAdditionalHolidays: async () => {
           try {
-            await holidaysAPI.clearAll();
+            try {
+              await holidaysAPI.clearAll();
+            } catch (error) {
+              // Fallback for older backend that does not support DELETE /holidays.
+              if (error instanceof APIError && error.status === 404) {
+                const holidays = await holidaysAPI.getAll();
+                await Promise.all(holidays.map((holiday: any) => holidaysAPI.delete(String(holiday.id))));
+              } else {
+                throw error;
+              }
+            }
             await get().loadAdditionalHolidays();
             get().showToast('공휴일 전체 데이터가 초기화되었습니다', 'success');
           } catch (error) {
