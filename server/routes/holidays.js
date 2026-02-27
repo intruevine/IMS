@@ -45,7 +45,7 @@ router.get('/', authenticateToken, async (_req, res) => {
   try {
     conn = await pool.getConnection();
     const rows = await conn.query(
-      `SELECT id, date, name, type, created_by, created_at, updated_at
+      `SELECT id, DATE_FORMAT(date, '%Y-%m-%d') AS date, name, type, created_by, created_at, updated_at
        FROM additional_holidays
        ORDER BY date ASC, name ASC`
     );
