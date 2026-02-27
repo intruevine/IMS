@@ -7,6 +7,17 @@ function isAdmin(req) {
   return req.user?.role === 'admin';
 }
 
+function toDbDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{8}$/.test(raw)) {
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10);
+  return '';
+}
+
 function toRow(holiday) {
   let dateStr = holiday.date;
   
@@ -36,7 +47,7 @@ function toRow(holiday) {
   return {
     ...holiday,
     id: String(holiday.id),
-    date: dateStr || ''
+    date: (dateStr || '').replace(/-/g, '')
   };
 }
 
@@ -45,11 +56,11 @@ router.get('/', authenticateToken, async (_req, res) => {
   try {
     conn = await pool.getConnection();
     const rows = await conn.query(
-      `SELECT id, DATE_FORMAT(date, '%Y-%m-%d') AS date, name, type, created_by, created_at, updated_at
+      `SELECT id, DATE_FORMAT(date, '%Y%m%d') AS date, name, type, created_by, created_at, updated_at
        FROM additional_holidays
        ORDER BY date ASC, name ASC`
     );
-    const transformed = rows.map(toRow).filter((row) => /^\d{4}-\d{2}-\d{2}$/.test(row.date));
+    const transformed = rows.map(toRow).filter((row) => /^\d{8}$/.test(row.date));
     res.json(transformed);
   } catch (error) {
     console.error('Error fetching additional holidays:', error);
@@ -65,28 +76,20 @@ router.post('/', authenticateToken, async (req, res) => {
   let conn;
   try {
     const { date, name, type } = req.body || {};
-    console.log('POST /api/holidays - received:', { date, name, type });
-    const normalizedDate = String(date || '').slice(0, 10);
+    const normalizedDate = toDbDate(date);
     const normalizedName = String(name || '').trim();
     const normalizedType = type === 'national' ? 'national' : 'company';
-
-    console.log('POST /api/holidays - normalized:', { normalizedDate, normalizedName, normalizedType });
 
     if (!normalizedDate || !normalizedName) {
       return res.status(400).json({ error: 'date and name are required' });
     }
 
     conn = await pool.getConnection();
-    console.log('POST /api/holidays - inserting to DB:', { normalizedDate, normalizedName, normalizedType });
     const result = await conn.query(
       `INSERT INTO additional_holidays (date, name, type, created_by)
        VALUES (?, ?, ?, ?)`,
       [normalizedDate, normalizedName, normalizedType, req.user?.username || null]
     );
-
-    // Fetch the inserted row to verify
-    const inserted = await conn.query('SELECT * FROM additional_holidays WHERE id = ?', [result.insertId]);
-    console.log('POST /api/holidays - inserted row from DB:', inserted[0]);
 
     res.status(201).json({ id: result.insertId, message: 'Holiday created successfully' });
   } catch (error) {
@@ -103,7 +106,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
   let conn;
   try {
     const { date, name, type } = req.body || {};
-    const normalizedDate = String(date || '').slice(0, 10);
+    const normalizedDate = toDbDate(date);
     const normalizedName = String(name || '').trim();
     const normalizedType = type === 'national' ? 'national' : 'company';
 

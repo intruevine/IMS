@@ -49,6 +49,15 @@ async function fetchAllAssets() {
 const iconButtonClass =
   'w-8 h-8 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50';
 
+function toDateInputValue(value: string) {
+  const raw = String(value || '').trim();
+  if (/^\d{8}$/.test(raw)) {
+    return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return '';
+}
+
 const SettingsPage: React.FC = () => {
   const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
@@ -300,7 +309,7 @@ const SettingsPage: React.FC = () => {
     const target = additionalHolidays.find((item) => item.id === id);
     if (!target) return;
     setHolidayForm({
-      date: target.date,
+      date: toDateInputValue(target.date),
       name: target.name,
       type: target.type
     });
