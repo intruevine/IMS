@@ -3,6 +3,22 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './shared/styles/globals.css';
 
+async function unregisterLegacyServiceWorkers() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    }
+  } catch (error) {
+    console.error('서비스워커 정리 실패:', error);
+  }
+}
+
 type BoundaryState = {
   hasError: boolean;
   message: string;
@@ -57,6 +73,8 @@ if (!window.__imsGlobalErrorHandlersRegistered__) {
 
   window.__imsGlobalErrorHandlersRegistered__ = true;
 }
+
+void unregisterLegacyServiceWorkers();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
