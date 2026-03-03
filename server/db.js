@@ -378,7 +378,7 @@ async function initDatabase() {
     console.log('All tables created successfully');
     
     // 기본 관리자 계정 생성
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     const adminExists = await conn.query('SELECT 1 FROM users WHERE username = ?', ['admin']);
     
     if (adminExists.length === 0) {

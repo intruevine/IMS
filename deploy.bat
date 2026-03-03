@@ -12,7 +12,7 @@ set "REMOTE_PASSWORD=R@kaf_427"
 set "REMOTE_DIR=/volume1/web_packages/MA/"
 
 echo ==========================================
-echo Intruevine IMS deploy
+echo Intruevine IMS frontend deploy
 echo ==========================================
 echo.
 
@@ -50,6 +50,7 @@ if errorlevel 1 (
 echo.
 echo [OK] Deploy completed.
 echo URL: https://intruevine.dscloud.biz/MA/
+echo Note: this script uploads frontend dist only.
 echo.
 
 endlocal

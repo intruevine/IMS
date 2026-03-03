@@ -32,6 +32,53 @@ npm run build
 - `https://intruevine.dscloud.biz/MA/`
 - `https://intruevine.dscloud.biz/MA/icon-192x192.png`
 
+Script:
+
+```bash
+deploy.bat
+```
+
+Important:
+
+- `deploy.bat` is frontend-only.
+- Always run `npm run build` before `deploy.bat`.
+
+## Backend Deploy
+
+Backend deploy must be handled separately from the frontend.
+
+Upload only these areas:
+
+- `server/index.js`
+- `server/db.js`
+- `server/package.json`
+- `server/package-lock.json`
+- `server/routes/*`
+- `server/middleware/*`
+- `server/scripts/*`
+- `server/node_modules/bcryptjs/*`
+
+Do not upload:
+
+- local `.env`
+- Windows-built native modules such as `server/node_modules/bcrypt`
+- whole `server/node_modules` from Windows
+
+Script:
+
+```bash
+deploy-backend.bat
+```
+
+What `deploy-backend.bat` does:
+
+- uploads backend source files to `/volume1/web_packages/MA/server`
+- uploads `bcryptjs` only, not the whole local `node_modules`
+- stops the old backend process
+- restores readable permissions on `.env` and backend js files
+- starts `index.js`
+- verifies `http://127.0.0.1:3001/api/`
+
 ## Backend Runtime
 
 - Backend entry: `/volume1/web_packages/MA/server/index.js`
@@ -87,9 +134,22 @@ curl http://127.0.0.1:3001/api/
 sudo /usr/local/etc/rc.d/S99intruevineims.sh restart
 ```
 
+- Or use the Windows-side backend deploy script:
+
+```bash
+deploy-backend.bat
+```
+
 - Reload nginx:
 
 ```bash
 sudo nginx -t
 sudo nginx -s reload
 ```
+
+## Recent Incident Notes
+
+- Frontend-only deploy is not enough when `server/routes/*` changes.
+- Uploading Windows `server/node_modules` to NAS can break Linux runtime binaries.
+- If valid credentials return `500`, check `.env` readability and `JWT_SECRET` loading first.
+- If asset contracts appear but per-contract assets look wrong, verify `/api/assets/contract/:id` before changing UI logic.
