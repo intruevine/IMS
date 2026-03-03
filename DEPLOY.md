@@ -7,6 +7,12 @@
 - NAS frontend root: `/volume1/web_packages/MA`
 - NAS backend root: `/volume1/web_packages/MA/server`
 
+Quick references:
+
+- Short checklist: `DEPLOY-CHECKLIST.md`
+- Release notes template/history: `RELEASE_NOTES-2026-03-03.md`
+- Manual backend start script on NAS: `server/scripts/run-api.sh`
+
 ## Important Notes
 
 - Do not use `https://api.intruevine.dscloud.biz` for production traffic.
