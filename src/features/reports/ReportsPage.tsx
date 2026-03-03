@@ -81,8 +81,12 @@ const ReportsPage: React.FC = () => {
   const filteredContracts = useMemo(() => {
     if (!rangeStart) return contracts;
     return contracts.filter((contract) => {
-      const date = toDate(contract.start_date);
-      return date ? date >= rangeStart : false;
+      const startDate = toDate(contract.start_date);
+      const endDate = toDate(contract.end_date);
+
+      if (endDate) return endDate >= rangeStart;
+      if (startDate) return startDate >= rangeStart;
+      return false;
     });
   }, [contracts, rangeStart]);
 
