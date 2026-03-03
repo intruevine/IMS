@@ -3,21 +3,16 @@ const configuredApiBaseRaw = (import.meta.env.VITE_API_URL as string | undefined
 const configuredApiBase = configuredApiBaseRaw ? configuredApiBaseRaw.replace(/\/+$/, '') : undefined;
 const isAbsoluteHttpUrl = (value?: string | null) => Boolean(value && /^https?:\/\//i.test(value));
 const fallbackApiBase = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
-const canonicalProdApiBase = import.meta.env.PROD ? 'https://api.intruevine.dscloud.biz/api' : null;
-const canonicalProdApiFallbackBase = import.meta.env.PROD ? 'https://intruevine.dscloud.biz/api' : null;
 const appBase = (import.meta.env.BASE_URL as string | undefined) || '/';
 const appScopedApiBase =
-  appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
+  import.meta.env.DEV && appBase && appBase !== '/' ? `${appBase.replace(/\/+$/, '')}/api` : null;
 
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
   : [
       configuredApiBase || fallbackApiBase,
-      appScopedApiBase,
       '/api',
-      isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null,
-      canonicalProdApiBase,
-      canonicalProdApiFallbackBase
+      isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null
     ];
 
 const API_BASE_URL_CANDIDATES = Array.from(
