@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
-import { assetsAPI } from '@/core/api/client';
+import { assetsAPI, contractsAPI } from '@/core/api/client';
 import { Card, Button, ConfirmModal } from '@/shared/components/ui';
-import type { AssetItem, AssetCategory } from '@/types';
+import type { AssetItem, AssetCategory, InspectionCycle } from '@/types';
 import { AssetFormModal } from './AssetFormModal';
 
 interface AssetWithContract extends AssetItem {
   contractId: number;
   customerName: string;
   projectTitle: string;
+}
+
+interface ContractOption {
+  id: number;
+  customer_name: string;
+  project_title: string;
 }
 
 const AssetsPage: React.FC = () => {
@@ -22,8 +28,6 @@ const AssetsPage: React.FC = () => {
   const setAssetSearchText = useAppStore((state) => state.setAssetSearchText);
   const setAssetPage = useAppStore((state) => state.setAssetPage);
   const deleteAsset = useAppStore((state) => state.deleteAsset);
-  const contracts = useAppStore((state) => state.contracts);
-  const loadContracts = useAppStore((state) => state.loadContracts);
   const role = useAppStore((state) => state.role);
   const isAdmin = role === 'admin';
   const canManageAsset = role === 'admin' || role === 'manager';
@@ -33,11 +37,26 @@ const AssetsPage: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<AssetWithContract | null>(null);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('view');
+  const [cycleFilter, setCycleFilter] = useState<'all' | InspectionCycle>('all');
+  const [contracts, setContracts] = useState<ContractOption[]>([]);
 
   useEffect(() => {
     loadAssets();
-    loadContracts();
-  }, [loadAssets, loadContracts]);
+  }, [loadAssets]);
+
+  useEffect(() => {
+    const loadContractOptions = async () => {
+      try {
+        const { contracts: loadedContracts } = await contractsAPI.getAll({ page: 1, limit: 1000 });
+        setContracts(loadedContracts);
+      } catch (error) {
+        console.error('Failed to load contract options:', error);
+        setContracts([]);
+      }
+    };
+
+    loadContractOptions();
+  }, []);
 
   useEffect(() => {
     if (contracts.length === 0) {
@@ -111,10 +130,37 @@ const AssetsPage: React.FC = () => {
     { key: 'SW', label: '소프트웨어', count: contractAssets.filter((asset) => asset.category === 'SW').length, icon: '💿' }
   ];
 
-  const filteredAssets =
-    assetFilter === 'all' ? contractAssets : contractAssets.filter((asset) => asset.category === assetFilter);
+  const cycleTabs: { key: 'all' | InspectionCycle; label: string }[] = [
+    { key: 'all', label: '전체 주기' },
+    { key: '월', label: '월' },
+    { key: '분기', label: '분기' },
+    { key: '반기', label: '반기' },
+    { key: '연', label: '연' },
+    { key: '장애시', label: '장애시' }
+  ];
+  const cycleCountMap = contractAssets.reduce<Record<string, number>>((acc, asset) => {
+    const cycle = asset.cycle || '미지정';
+    acc[cycle] = (acc[cycle] || 0) + 1;
+    return acc;
+  }, {});
+
+  const normalizedSearch = assetSearchText.trim().toLowerCase();
+  const filteredAssets = contractAssets.filter((asset) => {
+    const categoryMatched = assetFilter === 'all' || asset.category === assetFilter;
+    const cycleMatched = cycleFilter === 'all' || asset.cycle === cycleFilter;
+    const searchMatched =
+      !normalizedSearch ||
+      asset.item.toLowerCase().includes(normalizedSearch) ||
+      asset.product.toLowerCase().includes(normalizedSearch) ||
+      asset.customerName.toLowerCase().includes(normalizedSearch) ||
+      asset.projectTitle.toLowerCase().includes(normalizedSearch) ||
+      (asset.company || '').toLowerCase().includes(normalizedSearch);
+
+    return categoryMatched && cycleMatched && searchMatched;
+  });
 
   const totalPages = Math.ceil(filteredAssets.length / assetItemsPerPage);
+  const pagedAssets = filteredAssets.slice((assetPage - 1) * assetItemsPerPage, assetPage * assetItemsPerPage);
 
   return (
     <div>
@@ -169,6 +215,23 @@ const AssetsPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
+
+          <div className="md:w-44">
+            <select
+              value={cycleFilter}
+              onChange={(e) => {
+                setCycleFilter(e.target.value as 'all' | InspectionCycle);
+                setAssetPage(1);
+              }}
+              className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
+            >
+              {cycleTabs.map((tab) => (
+                <option key={tab.key} value={tab.key}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -196,12 +259,41 @@ const AssetsPage: React.FC = () => {
             </button>
           ))}
         </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">점검주기표</h3>
+            <span className="text-xs text-slate-500">선택 계약 기준</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+            {cycleTabs.map((tab) => {
+              const count = tab.key === 'all' ? contractAssets.length : cycleCountMap[tab.key] || 0;
+              const active = cycleFilter === tab.key;
+              return (
+                <button
+                  type="button"
+                  key={tab.key}
+                  onClick={() => {
+                    setCycleFilter(tab.key);
+                    setAssetPage(1);
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                    active ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  <p className="text-xs font-medium">{tab.label}</p>
+                  <p className="mt-1 text-base font-bold">{count}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </Card>
 
       {/* Assets List */}
       <div className="space-y-4">
-        {filteredAssets.length > 0 ? (
-          filteredAssets.map((asset) => (
+        {pagedAssets.length > 0 ? (
+          pagedAssets.map((asset) => (
             <Card key={`${asset.contractId}-${asset.id}`}>
               <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div className="flex items-center gap-3 min-w-[120px]">
@@ -224,6 +316,9 @@ const AssetsPage: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                       {asset.customerName}
+                    </span>
+                    <span className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                      점검주기 {asset.cycle}
                     </span>
                     <span className="text-xs text-slate-400">{asset.projectTitle}</span>
                   </div>
@@ -303,6 +398,7 @@ const AssetsPage: React.FC = () => {
               onClick={() => {
                 setAssetSearchText('');
                 setAssetFilter('all');
+                setCycleFilter('all');
                 setSelectedContractId(contracts[0]?.id ?? null);
               }}
             >
