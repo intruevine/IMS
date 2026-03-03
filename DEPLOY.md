@@ -10,6 +10,7 @@
 Quick references:
 
 - Short checklist: `DEPLOY-CHECKLIST.md`
+- Short checklist (Korean): `DEPLOY-CHECKLIST.ko.md`
 - Release notes template/history: `RELEASE_NOTES-2026-03-03.md`
 - Manual backend start script on NAS: `server/scripts/run-api.sh`
 - NAS boot script template: `server/scripts/S99intruevineims.sh`
