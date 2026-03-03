@@ -145,7 +145,14 @@ router.get('/contract/:contractId', authenticateToken, async (req, res) => {
   let conn;
   try {
     conn = await pool.getConnection();
-    const assets = await conn.query('SELECT * FROM assets WHERE contract_id = ?', [req.params.contractId]);
+    const assets = await conn.query(
+      `SELECT a.*, c.customer_name, c.project_title
+       FROM assets a
+       JOIN contracts c ON a.contract_id = c.id
+       WHERE a.contract_id = ?
+       ORDER BY a.created_at DESC`,
+      [req.params.contractId]
+    );
     
     const detailsMap = await fetchDetailsMap(conn, assets.map((asset) => asset.id));
     const formattedAssets = assets.map((asset) => formatAsset(asset, detailsMap));

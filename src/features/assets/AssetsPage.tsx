@@ -20,11 +20,9 @@ interface ContractOption {
 const AssetsPage: React.FC = () => {
   const assetFilter = useAppStore((state) => state.assetFilter);
   const assetSearchText = useAppStore((state) => state.assetSearchText);
-  const assetPage = useAppStore((state) => state.assetPage);
   const assetItemsPerPage = useAppStore((state) => state.assetItemsPerPage);
   const setAssetFilter = useAppStore((state) => state.setAssetFilter);
   const setAssetSearchText = useAppStore((state) => state.setAssetSearchText);
-  const setAssetPage = useAppStore((state) => state.setAssetPage);
   const deleteAsset = useAppStore((state) => state.deleteAsset);
   const role = useAppStore((state) => state.role);
   const isAdmin = role === 'admin';
@@ -38,6 +36,7 @@ const AssetsPage: React.FC = () => {
   const [cycleFilter, setCycleFilter] = useState<'all' | InspectionCycle>('all');
   const [contracts, setContracts] = useState<ContractOption[]>([]);
   const [contractAssets, setContractAssets] = useState<AssetWithContract[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const loadContractOptions = async () => {
@@ -88,6 +87,10 @@ const AssetsPage: React.FC = () => {
 
     loadContractAssets();
   }, [selectedContractId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedContractId, assetFilter, assetSearchText, cycleFilter]);
 
   const handleDelete = async () => {
     if (selectedAsset) {
@@ -189,8 +192,9 @@ const AssetsPage: React.FC = () => {
     return categoryMatched && cycleMatched && searchMatched;
   });
 
-  const totalPages = Math.ceil(filteredAssets.length / assetItemsPerPage);
-  const pagedAssets = filteredAssets.slice((assetPage - 1) * assetItemsPerPage, assetPage * assetItemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / assetItemsPerPage));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const pagedAssets = filteredAssets.slice((visiblePage - 1) * assetItemsPerPage, visiblePage * assetItemsPerPage);
 
   return (
     <div>
@@ -251,7 +255,6 @@ const AssetsPage: React.FC = () => {
               value={cycleFilter}
               onChange={(e) => {
                 setCycleFilter(e.target.value as 'all' | InspectionCycle);
-                setAssetPage(1);
               }}
               className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none"
             >
@@ -305,7 +308,6 @@ const AssetsPage: React.FC = () => {
                   key={tab.key}
                   onClick={() => {
                     setCycleFilter(tab.key);
-                    setAssetPage(1);
                   }}
                   className={`rounded-lg border px-3 py-2 text-left transition-colors ${
                     active ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700'
@@ -430,6 +432,7 @@ const AssetsPage: React.FC = () => {
                 setAssetFilter('all');
                 setCycleFilter('all');
                 setSelectedContractId(contracts[0]?.id ?? null);
+                setCurrentPage(1);
               }}
             >
               필터 초기화
@@ -444,8 +447,8 @@ const AssetsPage: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setAssetPage(assetPage - 1)}
-            disabled={assetPage <= 1}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={visiblePage <= 1}
           >
             이전
           </Button>
@@ -453,10 +456,10 @@ const AssetsPage: React.FC = () => {
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
-                onClick={() => setAssetPage(page)}
+                onClick={() => setCurrentPage(page)}
                 className={`
                   w-8 h-8 rounded text-sm font-medium transition-colors
-                  ${assetPage === page 
+                  ${visiblePage === page 
                     ? 'bg-blue-500 text-white' 
                     : 'text-slate-600 hover:bg-slate-100'
                   }
@@ -469,8 +472,8 @@ const AssetsPage: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setAssetPage(assetPage + 1)}
-            disabled={assetPage >= totalPages}
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            disabled={visiblePage >= totalPages}
           >
             다음
           </Button>
