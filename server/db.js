@@ -16,6 +16,7 @@ const pool = mariadb.createPool({
 
 const HOLIDAY_SYNC_YEARS = [2026, 2027, 2028, 2029, 2030];
 const HOLIDAY_API_BASE = 'https://date.nager.at/api/v3/publicholidays';
+const HOLIDAY_SYNC_TIMEOUT_MS = 3000;
 
 async function syncNationalHolidays(conn) {
   if (typeof fetch !== 'function') {
@@ -27,7 +28,12 @@ async function syncNationalHolidays(conn) {
 
   for (const year of HOLIDAY_SYNC_YEARS) {
     try {
-      const res = await fetch(`${HOLIDAY_API_BASE}/${year}/KR`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), HOLIDAY_SYNC_TIMEOUT_MS);
+      const res = await fetch(`${HOLIDAY_API_BASE}/${year}/KR`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       if (!res.ok) {
         console.warn(`Holiday sync skipped for ${year}: HTTP ${res.status}`);
         continue;

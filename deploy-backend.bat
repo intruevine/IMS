@@ -69,8 +69,9 @@ echo.
 echo Restarting backend...
 
 "%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "printf '%%s\n' '%REMOTE_PASSWORD%' | sudo -S pkill -f 'node index.js' || true"
-"%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "printf '%%s\n' '%REMOTE_PASSWORD%' | sudo -S chmod 666 %REMOTE_DIR%/.env %REMOTE_DIR%/db.js %REMOTE_DIR%/index.js %REMOTE_DIR%/routes/*.js %REMOTE_DIR%/middleware/*.js"
-"%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "cd %REMOTE_DIR% && nohup %REMOTE_NODE% index.js >/tmp/ims.out 2>/tmp/ims.err </dev/null &"
+"%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "printf '%%s\n' '%REMOTE_PASSWORD%' | sudo -S chmod 666 %REMOTE_DIR%/.env %REMOTE_DIR%/db.js %REMOTE_DIR%/index.js %REMOTE_DIR%/routes/*.js %REMOTE_DIR%/middleware/*.js %REMOTE_DIR%/scripts/*.sh"
+"%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "printf '%%s\n' '%REMOTE_PASSWORD%' | sudo -S rm -rf %REMOTE_DIR%/node_modules/bcrypt"
+"%PLINK_EXE%" -batch -ssh -P %REMOTE_PORT% -pw "%REMOTE_PASSWORD%" %REMOTE_USER%@%REMOTE_HOST% "cd %REMOTE_DIR% && nohup %REMOTE_NODE% index.js >run-backend.out.log 2>run-backend.err.log &"
 
 echo.
 echo Verifying backend health...
@@ -79,7 +80,7 @@ timeout /t 5 >nul
 if errorlevel 1 (
   echo.
   echo [ERROR] Backend health check failed.
-  echo Check /volume1/web_packages/MA/server/app.log and /tmp/ims.err on NAS.
+  echo Check /volume1/web_packages/MA/server/run-backend.err.log on NAS.
   echo.
   pause
   exit /b 1
