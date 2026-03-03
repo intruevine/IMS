@@ -18,8 +18,6 @@ interface ContractOption {
 }
 
 const AssetsPage: React.FC = () => {
-  const assets = useAppStore((state) => state.assets);
-  const loadAssets = useAppStore((state) => state.loadAssets);
   const assetFilter = useAppStore((state) => state.assetFilter);
   const assetSearchText = useAppStore((state) => state.assetSearchText);
   const assetPage = useAppStore((state) => state.assetPage);
@@ -39,10 +37,7 @@ const AssetsPage: React.FC = () => {
   const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('view');
   const [cycleFilter, setCycleFilter] = useState<'all' | InspectionCycle>('all');
   const [contracts, setContracts] = useState<ContractOption[]>([]);
-
-  useEffect(() => {
-    loadAssets();
-  }, [loadAssets]);
+  const [contractAssets, setContractAssets] = useState<AssetWithContract[]>([]);
 
   useEffect(() => {
     const loadContractOptions = async () => {
@@ -68,13 +63,49 @@ const AssetsPage: React.FC = () => {
     }
   }, [contracts, selectedContractId]);
 
+  useEffect(() => {
+    const loadContractAssets = async () => {
+      if (!selectedContractId) {
+        setContractAssets([]);
+        return;
+      }
+
+      try {
+        const loadedAssets = await assetsAPI.getByContract(selectedContractId);
+        setContractAssets(
+          loadedAssets.map((asset) => ({
+            ...asset,
+            contractId: asset.contract_id ?? selectedContractId,
+            customerName: asset.customer_name ?? '',
+            projectTitle: asset.project_title ?? ''
+          }))
+        );
+      } catch (error) {
+        console.error('선택 계약 자산 로드 실패:', error);
+        setContractAssets([]);
+      }
+    };
+
+    loadContractAssets();
+  }, [selectedContractId]);
+
   const handleDelete = async () => {
     if (selectedAsset) {
       try {
         await deleteAsset(selectedAsset.contractId, selectedAsset.id);
         setIsDeleteModalOpen(false);
         setSelectedAsset(null);
-        loadAssets();
+        if (selectedContractId) {
+          const loadedAssets = await assetsAPI.getByContract(selectedContractId);
+          setContractAssets(
+            loadedAssets.map((asset) => ({
+              ...asset,
+              contractId: asset.contract_id ?? selectedContractId,
+              customerName: asset.customer_name ?? '',
+              projectTitle: asset.project_title ?? ''
+            }))
+          );
+        }
       } catch (error) {
         console.error('Delete failed:', error);
       }
@@ -123,7 +154,6 @@ const AssetsPage: React.FC = () => {
     setIsFormModalOpen(true);
   };
 
-  const contractAssets = selectedContractId ? assets.filter((asset) => asset.contractId === selectedContractId) : [];
   const tabs: { key: 'all' | AssetCategory; label: string; count: number; icon: string }[] = [
     { key: 'all', label: '전체', count: contractAssets.length, icon: '📦' },
     { key: 'HW', label: '하드웨어', count: contractAssets.filter((asset) => asset.category === 'HW').length, icon: '💻' },
@@ -470,10 +500,31 @@ const AssetsPage: React.FC = () => {
         asset={selectedAsset}
         readOnly={formMode === 'view'}
         onSuccess={() => {
-          loadAssets();
-          setIsFormModalOpen(false);
-          setSelectedAsset(null);
-          setFormMode('view');
+          const reloadAssets = async () => {
+            if (!selectedContractId) {
+              setContractAssets([]);
+            } else {
+              const loadedAssets = await assetsAPI.getByContract(selectedContractId);
+              setContractAssets(
+                loadedAssets.map((asset) => ({
+                  ...asset,
+                  contractId: asset.contract_id ?? selectedContractId,
+                  customerName: asset.customer_name ?? '',
+                  projectTitle: asset.project_title ?? ''
+                }))
+              );
+            }
+            setIsFormModalOpen(false);
+            setSelectedAsset(null);
+            setFormMode('view');
+          };
+
+          reloadAssets().catch((error) => {
+            console.error('자산 목록 새로고침 실패:', error);
+            setIsFormModalOpen(false);
+            setSelectedAsset(null);
+            setFormMode('view');
+          });
         }}
       />
     </div>
