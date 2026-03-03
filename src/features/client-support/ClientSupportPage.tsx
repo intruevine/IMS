@@ -21,8 +21,9 @@ import { Card, Button } from '@/shared/components/ui';
 type SupportMode = 'personal' | 'team';
 const TEAM_OPTION_VALUE = '__team__';
 
-const SUPPORT_EVENT_TYPES = new Set(['remote_support', 'maintenance', 'sales_support', 'meeting']);
+const SUPPORT_EVENT_TYPES = new Set(['inspection', 'remote_support', 'maintenance', 'sales_support', 'meeting']);
 const TYPE_LABEL: Record<string, string> = {
+  inspection: '점검',
   remote_support: '원격지원',
   maintenance: '유지보수',
   sales_support: '영업지원',

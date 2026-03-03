@@ -225,6 +225,22 @@ export interface CalendarEvent {
   description?: string;
 }
 
+export interface CalendarEventTemplate {
+  id: number;
+  name: string;
+  title: string;
+  type: CalendarEventType;
+  scheduleDivision?: CalendarScheduleDivision;
+  customerName?: string;
+  location?: string;
+  contractId?: number;
+  status: 'scheduled' | 'completed' | 'overdue';
+  description?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AdditionalHoliday {
   id: string;
   date: string; // YYYY-MM-DD

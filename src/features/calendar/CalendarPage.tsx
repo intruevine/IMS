@@ -1,7 +1,8 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppStore } from '@/core/state/store';
 import { Card, Button, Modal, Input, Select, ConfirmModal } from '@/shared/components/ui';
-import type { CalendarEvent, CalendarEventType, CalendarScheduleDivision } from '@/types';
+import { eventTemplatesAPI } from '@/core/api/client';
+import type { CalendarEvent, CalendarEventTemplate, CalendarEventType, CalendarScheduleDivision } from '@/types';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -13,6 +14,7 @@ import type { EventContentArg } from '@fullcalendar/core';
 
 const NATIONAL_HOLIDAY_COLOR = '#dc2626';
 const COMPANY_HOLIDAY_COLOR = '#14b8a6';
+const DEFAULT_EVENT_COLOR = '#64748b';
 
 interface EventFormModalProps {
   isOpen: boolean;
@@ -68,7 +70,7 @@ function calculateSupportMinutesExcludingLunch(startValue?: string, endValue?: s
 function toBadgeText(name?: string) {
   const value = (name || '').trim();
   if (!value) return '?';
-  return value.length <= 2 ? value : value.slice(0, 2);
+  return value.length <= 3 ? value : value.slice(0, 3);
 }
 
 function toDateTimeLocalInput(value?: string) {
@@ -112,6 +114,29 @@ const EVENT_TYPE_OPTIONS: { value: CalendarEventType; label: string; color: stri
   { value: 'sales_support', label: '영업 지원', color: '#0ea5a4' }
 ];
 
+const EVENT_TYPE_COLOR_MAP = EVENT_TYPE_OPTIONS.reduce<Record<string, string>>((acc, option) => {
+  acc[option.value] = option.color;
+  return acc;
+}, {});
+
+function normalizeEventType(value?: string | null): CalendarEventType | 'other' {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized in EVENT_TYPE_COLOR_MAP) {
+    return normalized as CalendarEventType;
+  }
+  return 'other';
+}
+
+function getEventPalette(type?: string | null) {
+  const normalizedType = normalizeEventType(type);
+  return {
+    type: normalizedType,
+    backgroundColor: EVENT_TYPE_COLOR_MAP[normalizedType] || DEFAULT_EVENT_COLOR,
+    borderColor: EVENT_TYPE_COLOR_MAP[normalizedType] || DEFAULT_EVENT_COLOR,
+    textColor: '#ffffff'
+  };
+}
+
 const SCHEDULE_DIVISION_OPTIONS: { value: CalendarScheduleDivision; label: string }[] = [
   { value: 'am_offsite', label: '오전외근' },
   { value: 'pm_offsite', label: '오후외근' },
@@ -150,11 +175,30 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [templates, setTemplates] = useState<CalendarEventTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [isTemplateSubmitting, setIsTemplateSubmitting] = useState(false);
   const supportMinutes = useMemo(
     () => calculateSupportMinutesExcludingLunch(formData.start, formData.end),
     [formData.start, formData.end]
   );
   const supportHours = Number((supportMinutes / 60).toFixed(2));
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const loadedTemplates = await eventTemplatesAPI.getAll();
+      setTemplates(loadedTemplates);
+    } catch (error) {
+      console.error('Failed to load event templates:', error);
+      showToast('일정 템플릿을 불러오지 못했습니다', 'warning');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    loadTemplates();
+  }, [isOpen, loadTemplates]);
 
   useEffect(() => {
     if (event) {
@@ -188,8 +232,91 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
         description: ''
       });
     }
+    setSelectedTemplateId('');
+    setTemplateName('');
     setErrors({});
   }, [event, selectedDate, isOpen]);
+
+  const applyTemplate = useCallback(
+    (templateId: string) => {
+      setSelectedTemplateId(templateId);
+      const template = templates.find((item) => String(item.id) === templateId);
+      if (!template) return;
+
+      setFormData((prev) => ({
+        ...prev,
+        title: template.title,
+        type: template.type,
+        scheduleDivision: template.scheduleDivision || 'all_day_offsite',
+        customerName: template.customerName || '',
+        location: template.location || '',
+        contractId: template.contractId || 0,
+        status: template.status,
+        description: template.description || ''
+      }));
+      setTemplateName(template.name);
+    },
+    [templates]
+  );
+
+  const handleSaveTemplate = useCallback(async () => {
+    const normalizedName = templateName.trim();
+    if (!normalizedName) {
+      showToast('템플릿 이름을 입력해 주세요', 'warning');
+      return;
+    }
+    if (!formData.title?.trim()) {
+      showToast('일정 제목을 입력한 뒤 템플릿으로 저장해 주세요', 'warning');
+      return;
+    }
+
+    setIsTemplateSubmitting(true);
+    try {
+      await eventTemplatesAPI.create({
+        name: normalizedName,
+        title: formData.title.trim(),
+        type: formData.type || 'inspection',
+        scheduleDivision: formData.scheduleDivision || 'all_day_offsite',
+        customerName: formData.customerName || '',
+        location: formData.location || '',
+        contractId: formData.contractId || 0,
+        status: formData.status || 'scheduled',
+        description: formData.description || ''
+      });
+      await loadTemplates();
+      showToast('일정 템플릿을 저장했습니다', 'success');
+    } catch (error) {
+      console.error('Failed to save event template:', error);
+      showToast('일정 템플릿 저장 중 오류가 발생했습니다', 'error');
+    } finally {
+      setIsTemplateSubmitting(false);
+    }
+  }, [formData, loadTemplates, showToast, templateName]);
+
+  const handleDeleteTemplate = useCallback(async () => {
+    if (!selectedTemplateId) {
+      showToast('삭제할 템플릿을 먼저 선택해 주세요', 'warning');
+      return;
+    }
+
+    const template = templates.find((item) => String(item.id) === selectedTemplateId);
+    if (!template) return;
+    if (!window.confirm(`"${template.name}" 템플릿을 삭제하시겠습니까?`)) return;
+
+    setIsTemplateSubmitting(true);
+    try {
+      await eventTemplatesAPI.delete(template.id);
+      await loadTemplates();
+      setSelectedTemplateId('');
+      setTemplateName('');
+      showToast('일정 템플릿을 삭제했습니다', 'success');
+    } catch (error) {
+      console.error('Failed to delete event template:', error);
+      showToast('일정 템플릿 삭제 중 오류가 발생했습니다', 'error');
+    } finally {
+      setIsTemplateSubmitting(false);
+    }
+  }, [loadTemplates, selectedTemplateId, showToast, templates]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -272,6 +399,44 @@ const EventFormModal: React.FC<EventFormModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+            <Select
+              label="템플릿 불러오기"
+              value={selectedTemplateId}
+              onChange={(e) => applyTemplate(e.target.value)}
+              options={[
+                { value: '', label: templates.length > 0 ? '템플릿 선택' : '저장된 템플릿 없음' },
+                ...templates.map((template) => ({ value: String(template.id), label: template.name }))
+              ]}
+            />
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleDeleteTemplate}
+                disabled={!selectedTemplateId || isTemplateSubmitting}
+              >
+                템플릿 삭제
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto]">
+            <Input
+              label="템플릿 이름"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="예: 정기 점검 기본 템플릿"
+            />
+            <div className="flex items-end">
+              <Button type="button" variant="secondary" onClick={handleSaveTemplate} isLoading={isTemplateSubmitting}>
+                현재값 저장
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <Input
           label="일정 제목"
           value={formData.title}
@@ -408,7 +573,6 @@ const CalendarPage: React.FC = () => {
   const loadCalendarEvents = useAppStore((state) => state.loadCalendarEvents);
   const loadAdditionalHolidays = useAppStore((state) => state.loadAdditionalHolidays);
   const deleteEvent = useAppStore((state) => state.deleteCalendarEvent);
-  const generateCalendarEvents = useAppStore((state) => state.generateCalendarEventsFromData);
   const showToast = useAppStore((state) => state.showToast);
   const additionalHolidays = useAppStore((state) => state.additionalHolidays);
   const holidayLoadError = useAppStore((state) => state.holidayLoadError);
@@ -418,7 +582,6 @@ const CalendarPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [calendarView, setCalendarView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'>('dayGridMonth');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [hoveredEvent, setHoveredEvent] = useState<CalendarEvent | null>(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -451,15 +614,6 @@ const CalendarPage: React.FC = () => {
       api.changeView(calendarView);
     }
   }, [calendarView]);
-
-  const handleAutoGenerate = async () => {
-    setIsGenerating(true);
-    try {
-      await generateCalendarEvents();
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
     setSelectedDate(selectInfo.startStr);
@@ -504,30 +658,25 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const getEventColor = useCallback((type: CalendarEventType) => {
-    const colors: Record<CalendarEventType, string> = {
-      inspection: '#3b82f6',
-      maintenance: '#22c55e',
-      contract_end: '#ef4444',
-      meeting: '#f59e0b',
-      remote_support: '#06b6d4',
-      training: '#8b5cf6',
-      sales_support: '#0ea5a4'
-    };
-    return colors[type] || '#6b7280';
-  }, []);
-
   const appEvents = useMemo(() => {
-    return events.map((event) => ({
+    return events.map((event) => {
+      const palette = getEventPalette(event.type);
+      return {
       id: event.id,
       title: event.title,
       start: event.start,
       end: event.end,
-      backgroundColor: getEventColor(event.type),
-      borderColor: getEventColor(event.type),
-      extendedProps: event
-    }));
-  }, [events, getEventColor]);
+      backgroundColor: palette.backgroundColor,
+      borderColor: palette.borderColor,
+      textColor: palette.textColor,
+      classNames: [`event-type-${palette.type}`],
+      extendedProps: {
+        ...event,
+        type: palette.type
+      }
+    };
+    });
+  }, [events]);
 
   const renderEventContent = (arg: EventContentArg) => {
     const props = arg.event.extendedProps as Partial<CalendarEvent> & { isHoliday?: boolean };
@@ -538,7 +687,7 @@ const CalendarPage: React.FC = () => {
     const createdByDisplay = resolveCreatorDisplayName(props.createdBy, props.createdByName);
     return (
       <div className="flex items-center gap-1 min-w-0">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 text-[9px] font-semibold text-slate-700 shrink-0">
+        <span className="inline-flex min-w-[28px] items-center justify-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shrink-0">
           {createdByDisplay}
         </span>
         <span className="truncate text-[11px]">{arg.event.title}</span>
@@ -581,6 +730,18 @@ const CalendarPage: React.FC = () => {
     return set;
   }, [additionalHolidays]);
 
+  const holidayNameByDate = useMemo(() => {
+    const map = new Map<string, string[]>();
+    additionalHolidays.forEach((holiday) => {
+      const normalized = normalizeHolidayDate(holiday.date);
+      if (!normalized) return;
+      const names = map.get(normalized) || [];
+      names.push(holiday.name);
+      map.set(normalized, names);
+    });
+    return map;
+  }, [additionalHolidays]);
+
   const getDayCellClasses = useCallback(
     (arg: any) => {
       const dateKey = format(arg.date, 'yyyy-MM-dd');
@@ -598,6 +759,24 @@ const CalendarPage: React.FC = () => {
     if (day === 6) return ['fc-sat-day'];
     return [];
   }, []);
+
+  const handleDayCellDidMount = useCallback(
+    (arg: any) => {
+      const dateKey = format(arg.date, 'yyyy-MM-dd');
+      const names = holidayNameByDate.get(dateKey);
+      if (!names?.length) return;
+      if (arg.el.querySelector('.custom-holiday-chip')) return;
+
+      const chip = document.createElement('div');
+      chip.className =
+        'custom-holiday-chip mt-1 truncate rounded border border-red-100 bg-red-50 px-1 text-[10px] leading-4 text-red-600';
+      chip.textContent = names.join(', ');
+
+      const mountTarget = arg.el.querySelector('.fc-daygrid-day-top') || arg.el;
+      mountTarget.appendChild(chip);
+    },
+    [holidayNameByDate]
+  );
 
   const calendarEvents = useMemo(() => {
     const events = [...appEvents, ...customHolidayEvents];
@@ -629,6 +808,20 @@ const CalendarPage: React.FC = () => {
     completed: '완료',
     overdue: '지연'
   };
+  const currentMonthEvents = useMemo(() => {
+    const now = new Date();
+    return events.filter((event) => {
+      const eventDate = new Date(event.start);
+      return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
+    });
+  }, [events]);
+  const eventTypeCounts = useMemo(() => {
+    return currentMonthEvents.reduce<Record<string, number>>((acc, event) => {
+      const normalizedType = normalizeEventType(event.type);
+      acc[normalizedType] = (acc[normalizedType] || 0) + 1;
+      return acc;
+    }, {});
+  }, [currentMonthEvents]);
   const canDeleteSelectedEvent = Boolean(
     selectedEvent &&
       (role === 'admin' || (currentUser?.username && selectedEvent.createdBy === currentUser.username))
@@ -667,14 +860,6 @@ const CalendarPage: React.FC = () => {
             }}
           >
             + 새 일정
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={handleAutoGenerate}
-            isLoading={isGenerating}
-            title="계약 종료 일정을 자동 생성합니다"
-          >
-            자동 생성
           </Button>
         </div>
       </div>
@@ -722,6 +907,7 @@ const CalendarPage: React.FC = () => {
           dayMaxEvents={false}
           weekends={true}
           dayCellClassNames={getDayCellClasses}
+          dayCellDidMount={handleDayCellDidMount}
           dayHeaderClassNames={getDayHeaderClasses}
           select={handleDateSelect}
           eventClick={handleEventClick}
@@ -756,43 +942,19 @@ const CalendarPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-        <Card>
-          <div className="text-center">
-            <p className="text-xs text-slate-400 font-semibold mb-1">이번 달 일정</p>
-            <p className="text-2xl font-bold text-slate-900">
-              {events.filter((e) => {
-                const eventDate = new Date(e.start);
-                const now = new Date();
-                return eventDate.getMonth() === now.getMonth() && eventDate.getFullYear() === now.getFullYear();
-              }).length}
-            </p>
-          </div>
-        </Card>
-        <Card>
-          <div className="text-center">
-            <p className="text-xs text-slate-400 font-semibold mb-1">예정 점검</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {events.filter((e) => e.type === 'inspection' && e.status === 'scheduled').length}
-            </p>
-          </div>
-        </Card>
-        <Card>
-          <div className="text-center">
-            <p className="text-xs text-slate-400 font-semibold mb-1">계약 만료 예정</p>
-            <p className="text-2xl font-bold text-red-600">
-              {events.filter((e) => e.type === 'contract_end' && e.status === 'scheduled').length}
-            </p>
-          </div>
-        </Card>
-        <Card>
-          <div className="text-center">
-            <p className="text-xs text-slate-400 font-semibold mb-1">완료된 일정</p>
-            <p className="text-2xl font-bold text-green-600">
-              {events.filter((e) => e.status === 'completed').length}
-            </p>
-          </div>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 mt-6 md:grid-cols-4 xl:grid-cols-7">
+        {EVENT_TYPE_OPTIONS.map((type) => (
+          <Card key={type.value}>
+            <div className="text-center">
+              <p className="text-xs font-semibold mb-1" style={{ color: type.color }}>
+                {type.label}
+              </p>
+              <p className="text-2xl font-bold" style={{ color: type.color }}>
+                {eventTypeCounts[type.value] || 0}
+              </p>
+            </div>
+          </Card>
+        ))}
       </div>
 
       <EventFormModal

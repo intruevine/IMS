@@ -12,6 +12,9 @@ const appScopedApiBase =
 const baseCandidatesSeed = import.meta.env.DEV
   ? [configuredApiBase || fallbackApiBase, '/api', appScopedApiBase]
   : [
+      configuredApiBase || fallbackApiBase,
+      appScopedApiBase,
+      '/api',
       isAbsoluteHttpUrl(configuredApiBase) ? configuredApiBase : null,
       canonicalProdApiBase,
       canonicalProdApiFallbackBase
@@ -368,6 +371,31 @@ export const membersAPI = {
   }),
 };
 
+export const eventTemplatesAPI = {
+  getAll: () => fetchAPI<any[]>('/event-templates'),
+
+  create: (data: {
+    name: string;
+    title: string;
+    type: string;
+    scheduleDivision?: string;
+    customerName?: string;
+    location?: string;
+    contractId?: number;
+    status?: string;
+    description?: string;
+  }) =>
+    fetchAPI<{ id: number; message: string }>('/event-templates', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  delete: (id: number) =>
+    fetchAPI<{ message: string }>(`/event-templates/${id}`, {
+      method: 'DELETE'
+    })
+};
+
 export const holidaysAPI = {
   getAll: () => fetchAPI<any[]>('/holidays'),
 
@@ -500,6 +528,51 @@ export const clientSupportReportsAPI = {
     fetchAPI<{ id: number; message: string }>('/client-support-reports', {
       method: 'POST',
       body: JSON.stringify(data)
+    }),
+
+  update: (
+    id: number,
+    data: {
+      customerName: string;
+      contractId?: number | null;
+      supportSummary?: string;
+      systemName?: string;
+      supportTypes?: string[];
+      requester?: string;
+      requestAt?: string;
+      assignee?: string;
+      completedAt?: string;
+      requestDetail?: string;
+      cause?: string;
+      supportDetail?: string;
+      overallOpinion?: string;
+      note?: string;
+    }
+  ) =>
+    fetchAPI<{ message: string }>(`/client-support-reports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
+  delete: (id: number) =>
+    fetchAPI<{ message: string }>(`/client-support-reports/${id}`, {
+      method: 'DELETE'
+    })
+};
+
+export const systemSettingsAPI = {
+  getBrandLogo: () =>
+    fetchAPI<{ dataUrl: string | null; updated_by: string | null; updated_at: string | null }>('/system-settings/brand-logo'),
+
+  updateBrandLogo: (dataUrl: string) =>
+    fetchAPI<{ message: string }>('/system-settings/brand-logo', {
+      method: 'PUT',
+      body: JSON.stringify({ dataUrl })
+    }),
+
+  resetBrandLogo: () =>
+    fetchAPI<{ message: string }>('/system-settings/brand-logo', {
+      method: 'DELETE'
     })
 };
 
@@ -509,10 +582,12 @@ export default {
   assets: assetsAPI,
   users: usersAPI,
   events: eventsAPI,
+  eventTemplates: eventTemplatesAPI,
   members: membersAPI,
   holidays: holidaysAPI,
   notices: noticesAPI,
-  clientSupportReports: clientSupportReportsAPI
+  clientSupportReports: clientSupportReportsAPI,
+  systemSettings: systemSettingsAPI
 };
 
 

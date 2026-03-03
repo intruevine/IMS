@@ -2,7 +2,7 @@
 const mariadb = require('mariadb');
 
 const pool = mariadb.createPool({
-  host: process.env.DB_HOST || 'intruevine.dscloud.biz',  // NAS 도메인 주소
+  host: process.env.DB_HOST || '127.0.0.1',  // NAS 내부 DB 기본값
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'intruevine',
   password: process.env.DB_PASSWORD || 'IntrueVine2@25',
@@ -342,6 +342,36 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_entity (entity_id, entity_type),
         INDEX idx_created_at (created_at)
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value LONGTEXT NULL,
+        updated_by VARCHAR(50) NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS event_templates (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        title VARCHAR(300) NOT NULL,
+        type ENUM('contract_end', 'inspection', 'maintenance', 'meeting', 'remote_support', 'training', 'sales_support', 'other') DEFAULT 'inspection',
+        schedule_division ENUM('am_offsite', 'pm_offsite', 'all_day_offsite', 'night_support', 'emergency_support') NULL,
+        customer_name VARCHAR(200) NULL,
+        location VARCHAR(300) NULL,
+        contract_id INT NULL,
+        status ENUM('scheduled', 'completed', 'cancelled', 'overdue') DEFAULT 'scheduled',
+        description TEXT NULL,
+        created_by VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE SET NULL,
+        INDEX idx_event_templates_created_by (created_by),
+        INDEX idx_event_templates_name (name)
       )
     `);
     
