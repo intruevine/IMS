@@ -1,9 +1,9 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import * as XLSX from 'xlsx';
 import { useAppStore } from '@/core/state/store';
-import { assetsAPI, contractsAPI, eventsAPI, membersAPI } from '@/core/api/client';
+import { assetsAPI, contractsAPI, eventsAPI, holidaysAPI, membersAPI, systemSettingsAPI } from '@/core/api/client';
 import { Button, Card, CardHeader, ConfirmModal, Input, Modal } from '@/shared/components/ui';
+import { downloadCsv, readCsvFile } from '@/shared/utils/csv';
 import type { User, UserRole, HolidayType } from '@/types';
 
 function formatDateSafe(value: unknown, fallback = '-') {
@@ -63,21 +63,20 @@ function normalizeHolidayUploadDate(value: unknown): string {
   if (value === null || value === undefined) return '';
 
   if (typeof value === 'number' && Number.isFinite(value)) {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (!parsed) return '';
-    const year = String(parsed.y);
-    const month = String(parsed.m).padStart(2, '0');
-    const day = String(parsed.d).padStart(2, '0');
-    return `${year}${month}${day}`;
+    const asInt = String(Math.trunc(value));
+    if (/^\d{8}$/.test(asInt)) {
+      return asInt;
+    }
+    return '';
   }
 
   const raw = String(value).trim();
   if (!raw) return '';
   if (/^\d{8}$/.test(raw)) return raw;
   if (/^\d{4}[-./]\d{2}[-./]\d{2}$/.test(raw)) return raw.replace(/[-./]/g, '');
-
   const digitsOnly = raw.replace(/\D/g, '');
   if (/^\d{8}$/.test(digitsOnly)) return digitsOnly;
+  if (!/\d{4}/.test(raw)) return '';
 
   const parsedDate = new Date(raw);
   if (Number.isNaN(parsedDate.getTime())) return '';
@@ -95,12 +94,28 @@ function normalizeHolidayUploadType(value: unknown): HolidayType {
   return 'company';
 }
 
-function pickHolidayCell(row: Record<string, unknown>, keys: string[]): unknown {
+function normalizeHeaderKey(key: string): string {
+  return key.toLowerCase().replace(/[\s_\-()]/g, '');
+}
+
+function pickHolidayCellFlexible(row: Record<string, unknown>, keys: string[]): unknown {
+  const normalizedRow = new Map<string, unknown>();
+  Object.entries(row).forEach(([rawKey, value]) => {
+    normalizedRow.set(normalizeHeaderKey(rawKey), value);
+  });
+
   for (const key of keys) {
-    if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
-      return row[key];
+    const value = normalizedRow.get(normalizeHeaderKey(key));
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
     }
   }
+
+  // Fallback: no header/unknown header -> use first columns (date, name, type order)
+  const values = Object.values(row);
+  if (keys.includes('date') || keys.includes('날짜')) return values[0] ?? '';
+  if (keys.includes('name') || keys.includes('휴일명')) return values[1] ?? '';
+  if (keys.includes('type') || keys.includes('유형')) return values[2] ?? '';
   return '';
 }
 const SettingsPage: React.FC = () => {
@@ -138,16 +153,42 @@ const SettingsPage: React.FC = () => {
     assets: 0,
     events: 0
   });
+  const defaultBrandLogoSrc = `${import.meta.env.BASE_URL}icon-192x192.png`;
+  const [brandLogoSrc, setBrandLogoSrc] = useState(defaultBrandLogoSrc);
+  const [isBrandLogoSubmitting, setIsBrandLogoSubmitting] = useState(false);
+  const brandLogoInputRef = useRef<HTMLInputElement | null>(null);
 
   const [holidayForm, setHolidayForm] = useState({
     date: '',
     name: '',
     type: 'company' as HolidayType
   });
+  const [userPage, setUserPage] = useState(1);
+  const [holidayPage, setHolidayPage] = useState(1);
   const holidayUploadInputRef = useRef<HTMLInputElement | null>(null);
   const [isHolidayUploadSubmitting, setIsHolidayUploadSubmitting] = useState(false);
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
   const [pendingRoleByUser, setPendingRoleByUser] = useState<Record<string, UserRole>>({});
+  const USER_PAGE_SIZE = 5;
+  const HOLIDAY_PAGE_SIZE = 5;
+  const totalUserPages = Math.max(1, Math.ceil(users.length / USER_PAGE_SIZE));
+  const totalHolidayPages = Math.max(1, Math.ceil(additionalHolidays.length / HOLIDAY_PAGE_SIZE));
+  const pagedUsers = useMemo(
+    () => users.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE),
+    [users, userPage]
+  );
+  const pagedHolidays = useMemo(
+    () => additionalHolidays.slice((holidayPage - 1) * HOLIDAY_PAGE_SIZE, holidayPage * HOLIDAY_PAGE_SIZE),
+    [additionalHolidays, holidayPage]
+  );
+
+  useEffect(() => {
+    if (userPage > totalUserPages) setUserPage(totalUserPages);
+  }, [userPage, totalUserPages]);
+
+  useEffect(() => {
+    if (holidayPage > totalHolidayPages) setHolidayPage(totalHolidayPages);
+  }, [holidayPage, totalHolidayPages]);
 
   const loadStats = async () => {
     if (!isAuthenticated) {
@@ -168,7 +209,7 @@ const SettingsPage: React.FC = () => {
         events: events?.length || 0
       });
     } catch (error) {
-      console.error('Failed to load API stats:', error);
+      console.error('API 통계 로드 실패:', error);
       showToast('통계 로드에 실패했습니다', 'error');
     }
   };
@@ -176,12 +217,24 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     loadStats();
     loadAdditionalHolidays();
-    console.log('SettingsPage: loaded additional holidays');
     if (isAuthenticated && role === 'admin') {
       loadUsers();
       loadPendingUsers();
     }
   }, [isAuthenticated, role, loadUsers, loadPendingUsers, loadAdditionalHolidays]);
+
+  useEffect(() => {
+    const loadBrandLogo = async () => {
+      try {
+        const response = await systemSettingsAPI.getBrandLogo();
+        setBrandLogoSrc(response.dataUrl || defaultBrandLogoSrc);
+      } catch {
+        setBrandLogoSrc(defaultBrandLogoSrc);
+      }
+    };
+
+    loadBrandLogo();
+  }, [defaultBrandLogoSrc]);
 
   const handleExportData = async () => {
     try {
@@ -216,7 +269,7 @@ const SettingsPage: React.FC = () => {
 
       showToast('데이터를 백업했습니다', 'success');
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('백업 실패:', error);
       showToast('백업 중 오류가 발생했습니다', 'error');
     }
   };
@@ -247,7 +300,7 @@ const SettingsPage: React.FC = () => {
       await loadStats();
       showToast('전체 데이터를 초기화했습니다', 'success');
     } catch (error) {
-      console.error('Reset error:', error);
+      console.error('초기화 실패:', error);
       showToast('초기화 중 오류가 발생했습니다', 'error');
     } finally {
       setIsSubmitting(false);
@@ -326,7 +379,7 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleSaveHoliday = async () => {
-    const date = holidayForm.date.trim();
+    const date = normalizeHolidayUploadDate(holidayForm.date.trim());
     const name = holidayForm.name.trim();
     if (!date || !name) {
       showToast('공휴일 날짜와 이름을 입력해 주세요', 'warning');
@@ -347,6 +400,7 @@ const SettingsPage: React.FC = () => {
           type: holidayForm.type
         });
       }
+      setHolidayPage(1);
       resetHolidayForm();
     } catch {
       // store handles toast
@@ -369,6 +423,7 @@ const SettingsPage: React.FC = () => {
     if (!ok) return;
     try {
       await deleteAdditionalHoliday(id);
+      setHolidayPage(1);
       if (editingHolidayId === id) {
         resetHolidayForm();
       }
@@ -382,27 +437,31 @@ const SettingsPage: React.FC = () => {
     if (!ok) return;
     try {
       await clearAdditionalHolidays();
+      setHolidayPage(1);
       resetHolidayForm();
     } catch {
       // store handles toast
     }
   };
 
-  const handleHolidayExcelUpload = async (file: File) => {
+  const handleHolidayCsvUpload = async (file: File) => {
     setIsHolidayUploadSubmitting(true);
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
-        showToast('엑셀 시트를 찾을 수 없습니다', 'warning');
-        return;
-      }
-
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[firstSheetName], {
-        defval: '',
-        raw: true
-      });
+      const matrix = await readCsvFile(file);
+      const firstRow = (matrix[0] || []).map((v) => String(v || '').trim().toLowerCase());
+      const hasKnownHeader =
+        firstRow.includes('date') ||
+        firstRow.includes('날짜') ||
+        firstRow.includes('일자') ||
+        firstRow.includes('yyyymmdd');
+      const sourceRows = hasKnownHeader ? matrix.slice(1) : matrix;
+      const rows = sourceRows
+        .filter((r) => Array.isArray(r) && r.some((v) => String(v || '').trim() !== ''))
+        .map((r) => ({
+          [hasKnownHeader ? String(matrix[0]?.[0] || 'date') : 'date']: r[0] ?? '',
+          [hasKnownHeader ? String(matrix[0]?.[1] || 'name') : 'name']: r[1] ?? '',
+          [hasKnownHeader ? String(matrix[0]?.[2] || 'type') : 'type']: r[2] ?? ''
+        }));
 
       if (!rows.length) {
         showToast('업로드할 공휴일 데이터가 없습니다', 'warning');
@@ -412,10 +471,14 @@ const SettingsPage: React.FC = () => {
       let successCount = 0;
       let failCount = 0;
 
-      for (const row of rows) {
-        const rawDate = pickHolidayCell(row, ['date', '날짜', '일자']);
-        const rawName = pickHolidayCell(row, ['name', '휴일명', '명칭']);
-        const rawType = pickHolidayCell(row, ['type', '유형', '휴일유형']);
+      let skippedDuplicateCount = 0;
+      let firstErrorMessage = '';
+
+      for (let idx = 0; idx < rows.length; idx += 1) {
+        const row = rows[idx];
+        const rawDate = pickHolidayCellFlexible(row, ['date', '날짜', '일자', 'yyyymmdd']);
+        const rawName = pickHolidayCellFlexible(row, ['name', '휴일명', '공휴일명', '명칭']);
+        const rawType = pickHolidayCellFlexible(row, ['type', '유형', '구분', '휴일유형']);
 
         const date = normalizeHolidayUploadDate(rawDate);
         const name = String(rawName || '').trim();
@@ -427,38 +490,109 @@ const SettingsPage: React.FC = () => {
         }
 
         try {
-          await addAdditionalHoliday({ date, name, type });
+          await holidaysAPI.create({ date, name, type });
           successCount += 1;
-        } catch {
-          failCount += 1;
+        } catch (error) {
+          const messageRaw = error instanceof Error ? error.message : String(error || '');
+          const message = messageRaw.toLowerCase();
+          if (message.includes('duplicate') || message.includes('already') || message.includes('중복')) {
+            skippedDuplicateCount += 1;
+          } else {
+            failCount += 1;
+            if (!firstErrorMessage) firstErrorMessage = messageRaw;
+          }
         }
       }
 
-      if (successCount > 0 && failCount === 0) {
+      await loadAdditionalHolidays();
+      setHolidayPage(1);
+
+      if (successCount > 0 && failCount === 0 && skippedDuplicateCount === 0) {
         showToast(`공휴일 ${successCount}건을 업로드했습니다`, 'success');
-      } else if (successCount > 0 && failCount > 0) {
-        showToast(`업로드 완료: 성공 ${successCount}건, 실패 ${failCount}건`, 'warning');
+      } else if (successCount > 0 || skippedDuplicateCount > 0) {
+        showToast(
+          `업로드 완료: 성공 ${successCount}건, 중복건너뜀 ${skippedDuplicateCount}건, 실패 ${failCount}건`,
+          failCount > 0 ? 'warning' : 'success'
+        );
       } else {
-        showToast('업로드에 실패했습니다. 파일 형식을 확인해 주세요', 'error');
+        const detail = firstErrorMessage ? ` (${firstErrorMessage.slice(0, 120)})` : '';
+        showToast(`업로드에 실패했습니다${detail}`, 'error');
       }
     } catch (error) {
-      console.error('Holiday excel upload error:', error);
-      showToast('엑셀 업로드 중 오류가 발생했습니다', 'error');
+      console.error('공휴일 CSV 업로드 실패:', error);
+      showToast('CSV 업로드 중 오류가 발생했습니다', 'error');
     } finally {
       setIsHolidayUploadSubmitting(false);
     }
   };
 
-  const handleHolidayExcelFileChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
+  const handleHolidayCsvFileChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
     const file = event.target.files?.[0];
     event.currentTarget.value = '';
     if (!file) return;
-    await handleHolidayExcelUpload(file);
+    await handleHolidayCsvUpload(file);
   };
+
+  const handleDownloadHolidayTemplate = async () => {
+    downloadCsv('holiday_upload_template.csv', [
+      ['date', 'name', 'type'],
+      ['20260101', '신정', 'national'],
+      ['20260216', '설날 연휴', 'national'],
+      ['20261231', '종무일', 'company']
+    ]);
+  };
+
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
     logout();
     showToast('로그아웃되었습니다', 'success');
+  };
+
+  const handleBrandLogoFileChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('이미지 파일만 업로드할 수 있습니다', 'warning');
+      return;
+    }
+
+    setIsBrandLogoSubmitting(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (!result) throw new Error('이미지 데이터를 읽지 못했습니다.');
+        await systemSettingsAPI.updateBrandLogo(result);
+        setBrandLogoSrc(result);
+        window.dispatchEvent(new CustomEvent('brand-logo-updated', { detail: { dataUrl: result } }));
+        showToast('로고가 저장되었습니다', 'success');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '로고 저장에 실패했습니다';
+        showToast(message, 'error');
+      } finally {
+        setIsBrandLogoSubmitting(false);
+      }
+    };
+    reader.onerror = () => {
+      setIsBrandLogoSubmitting(false);
+      showToast('로고 업로드 중 오류가 발생했습니다', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetBrandLogo = async () => {
+    const ok = window.confirm('기본 로고로 되돌릴까요?');
+    if (!ok) return;
+    try {
+      await systemSettingsAPI.resetBrandLogo();
+      setBrandLogoSrc(defaultBrandLogoSrc);
+      window.dispatchEvent(new CustomEvent('brand-logo-updated', { detail: { dataUrl: null } }));
+      showToast('기본 로고로 되돌렸습니다', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '로고 초기화에 실패했습니다';
+      showToast(message, 'error');
+    }
   };
 
   return (
@@ -506,6 +640,40 @@ const SettingsPage: React.FC = () => {
         </Card>
 
         {role === 'admin' && (
+          <Card>
+            <CardHeader title="브랜드 로고" subtitle="통합관리자 설정에서 로고를 업로드합니다" />
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <img src={brandLogoSrc} alt="브랜드 로고 미리보기" className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white" />
+                <div className="text-sm text-slate-500">
+                  <p>업로드 후 서버에 저장되어 새로고침해도 유지됩니다.</p>
+                  <p>권장 형식: PNG 또는 JPG</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  onClick={() => brandLogoInputRef.current?.click()}
+                  isLoading={isBrandLogoSubmitting}
+                >
+                  로고 업로드
+                </Button>
+                <Button variant="secondary" onClick={handleResetBrandLogo}>
+                  기본 로고 복원
+                </Button>
+                <input
+                  ref={brandLogoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleBrandLogoFileChange}
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {role === 'admin' && (
           <Card className="md:col-span-2">
             <CardHeader
               title="사용자 관리"
@@ -525,7 +693,7 @@ const SettingsPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {users.map((u) => (
+                  {pagedUsers.map((u) => (
                     <tr key={u.username}>
                       <td className="px-4 py-3">{u.username}</td>
                       <td className="px-4 py-3">{u.display_name}</td>
@@ -568,6 +736,20 @@ const SettingsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            {users.length > USER_PAGE_SIZE && (
+              <div className="mt-3 flex items-center justify-center gap-1">
+                {Array.from({ length: totalUserPages }, (_, i) => i + 1).map((pageNum) => (
+                  <Button
+                    key={`user-page-${pageNum}`}
+                    size="sm"
+                    variant={userPage === pageNum ? 'primary' : 'secondary'}
+                    onClick={() => setUserPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                ))}
+              </div>
+            )}
           </Card>
         )}
 
@@ -599,6 +781,8 @@ const SettingsPage: React.FC = () => {
                       <td className="px-4 py-3">{u.display_name}</td>
                       <td className="px-4 py-3">
                         <select
+                          id={`pending-role-${u.username}`}
+                          name={`pending_role_${u.username}`}
                           className="input max-w-[120px]"
                           value={pendingRoleByUser[u.username] || 'user'}
                           onChange={(e) =>
@@ -608,7 +792,9 @@ const SettingsPage: React.FC = () => {
                             }))
                           }
                         >
-                          <option value="user">user</option>\n                          <option value="manager">manager</option>\n                          <option value="admin">admin</option>
+                          <option value="user">일반 사용자</option>
+                          <option value="manager">중간 관리자</option>
+                          <option value="admin">관리자</option>
                         </select>
                       </td>
                       <td className="px-4 py-3">{formatDateSafe(u.created_at)}</td>
@@ -639,8 +825,10 @@ const SettingsPage: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_180px_auto] gap-2 items-end">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">날짜</label>
+                  <label htmlFor="holiday-date" className="block text-xs text-slate-500 mb-1">날짜</label>
                   <input
+                    id="holiday-date"
+                    name="holiday_date"
                     type="date"
                     className="input"
                     value={holidayForm.date}
@@ -654,8 +842,10 @@ const SettingsPage: React.FC = () => {
                   placeholder="예: 창립기념일"
                 />
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">유형</label>
+                  <label htmlFor="holiday-type" className="block text-xs text-slate-500 mb-1">유형</label>
                   <select
+                    id="holiday-type"
+                    name="holiday_type"
                     className="input"
                     value={holidayForm.type}
                     onChange={(e) => setHolidayForm((prev) => ({ ...prev, type: e.target.value as HolidayType }))}
@@ -673,14 +863,23 @@ const SettingsPage: React.FC = () => {
                     onClick={() => holidayUploadInputRef.current?.click()}
                     isLoading={isHolidayUploadSubmitting}
                   >
-                    엑셀 업로드
+                    CSV 업로드
                   </Button>
+                  <Button variant="secondary" onClick={handleDownloadHolidayTemplate}>
+                    템플릿 다운로드
+                  </Button>
+                  <label htmlFor="holiday-upload-file" className="sr-only">
+                    공휴일 CSV 업로드 파일
+                  </label>
                   <input
+                    id="holiday-upload-file"
+                    name="holiday_upload_file"
                     ref={holidayUploadInputRef}
                     type="file"
-                    accept=".xlsx,.xls,.csv"
+                    accept=".csv"
                     className="hidden"
-                    onChange={handleHolidayExcelFileChange}
+                    aria-label="공휴일 CSV 업로드 파일"
+                    onChange={handleHolidayCsvFileChange}
                   />
                   <Button variant="danger" onClick={handleClearAllHolidays}>
                     전체 삭제
@@ -712,7 +911,7 @@ const SettingsPage: React.FC = () => {
                         </td>
                       </tr>
                     )}
-                    {additionalHolidays.map((holiday) => (
+                    {pagedHolidays.map((holiday) => (
                       <tr key={holiday.id}>
                         <td className="px-4 py-3">{holiday.date}</td>
                         <td className="px-4 py-3">{holiday.name}</td>
@@ -750,6 +949,29 @@ const SettingsPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              {additionalHolidays.length > HOLIDAY_PAGE_SIZE && (
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setHolidayPage((prev) => Math.max(1, prev - 1))}
+                    disabled={holidayPage <= 1}
+                  >
+                    ◀ 이전
+                  </Button>
+                  <span className="px-2 text-sm text-slate-600">
+                    {holidayPage} / {totalHolidayPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setHolidayPage((prev) => Math.min(totalHolidayPages, prev + 1))}
+                    disabled={holidayPage >= totalHolidayPages}
+                  >
+                    다음 ▶
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
         )}
@@ -796,13 +1018,17 @@ const SettingsPage: React.FC = () => {
         <div className="space-y-4">
           <Input label="아이디" value={selectedUser?.username || ''} disabled />
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">권한</label>
+            <label htmlFor="edit-user-role" className="block text-sm font-semibold text-slate-700 mb-2">권한</label>
             <select
+              id="edit-user-role"
+              name="edit_user_role"
               className="input"
               value={editRole}
               onChange={(e) => setEditRole(e.target.value as UserRole)}
             >
-              <option value="user">user</option>\n                          <option value="manager">manager</option>\n                          <option value="admin">admin</option>
+              <option value="user">일반 사용자</option>
+              <option value="manager">중간 관리자</option>
+              <option value="admin">관리자</option>
             </select>
           </div>
           <Input
@@ -823,10 +1049,17 @@ const SettingsPage: React.FC = () => {
         message="로그아웃 하시겠습니까?"
         confirmText="로그아웃"
         cancelText="취소"
+        icon="logout"
       />
     </div>
   );
 };
 
 export default SettingsPage;
+
+
+
+
+
+
 

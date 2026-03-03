@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAppStore } from '@/core/state/store';
 import { hasAuthToken } from '@/core/api/client';
 import { Button } from '@/shared/components/ui';
@@ -25,12 +24,12 @@ const LoginPage: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLoginSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     clearAuthError();
 
     if (!username.trim() || !password) {
-      showToast('아이디와 비밀번호를 입력해 주세요', 'warning');
+      showToast('아이디와 비밀번호를 입력해 주세요.', 'warning');
       return;
     }
 
@@ -40,24 +39,24 @@ const LoginPage: React.FC = () => {
 
     if (!success) {
       const latestError = useAppStore.getState().authError;
-      showToast(latestError || '로그인에 실패했습니다', 'error');
+      showToast(latestError || '로그인에 실패했습니다.', 'error');
     }
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegisterSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     clearAuthError();
 
     if (!username.trim() || !registerName.trim() || !registerPassword) {
-      showToast('아이디, 이름, 비밀번호를 모두 입력해 주세요', 'warning');
+      showToast('아이디, 이름, 비밀번호를 모두 입력해 주세요.', 'warning');
       return;
     }
     if (registerPassword !== registerPasswordConfirm) {
-      showToast('비밀번호 확인이 일치하지 않습니다', 'warning');
+      showToast('비밀번호 확인이 일치하지 않습니다.', 'warning');
       return;
     }
     if (registerPassword.length < 4) {
-      showToast('비밀번호는 4자 이상이어야 합니다', 'warning');
+      showToast('비밀번호는 4자 이상이어야 합니다.', 'warning');
       return;
     }
 
@@ -66,15 +65,15 @@ const LoginPage: React.FC = () => {
       await registerUserRequest({
         username: username.trim(),
         display_name: registerName.trim(),
-        password: registerPassword
+        password: registerPassword,
       });
-      showToast('가입 요청이 접수되었습니다. 관리자 승인 후 로그인 가능합니다.', 'success');
+      showToast('가입 요청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.', 'success');
       setMode('login');
       setPassword('');
       setRegisterPassword('');
       setRegisterPasswordConfirm('');
     } catch (error) {
-      const message = error instanceof Error ? error.message : '가입 요청에 실패했습니다';
+      const message = error instanceof Error ? error.message : '가입 요청에 실패했습니다.';
       showToast(message, 'error');
     } finally {
       setIsLoading(false);
@@ -82,36 +81,26 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden">
-      <div className="absolute w-96 h-96 bg-blue-300 rounded-full filter blur-[80px] opacity-40 top-[-10%] left-[-10%] animate-blob" />
-      <div className="absolute w-96 h-96 bg-indigo-300 rounded-full filter blur-[80px] opacity-40 bottom-[-10%] right-[-10%] animate-blob animation-delay-2000" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50">
+      <div className="absolute left-[-10%] top-[-10%] h-96 w-96 animate-blob rounded-full bg-blue-300 opacity-40 blur-[80px] filter" />
+      <div className="absolute bottom-[-10%] right-[-10%] h-96 w-96 animate-blob rounded-full bg-indigo-300 opacity-40 blur-[80px] filter animation-delay-2000" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
-      >
-        <div className="bg-white/80 backdrop-blur-xl p-10 rounded-3xl shadow-2xl border border-white/60">
-          <div className="text-center mb-10">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring' }}
-              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white text-2xl mb-4 shadow-lg shadow-indigo-200"
-            >
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="relative z-10 w-full max-w-md">
+        <div className="rounded-3xl border border-white/60 bg-white/80 p-10 shadow-2xl backdrop-blur-xl">
+          <div className="mb-10 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-2xl text-white shadow-lg shadow-indigo-200">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-            </motion.div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">통합 고객지원관리시스템</h1>
-            <p className="text-slate-500 mt-2 text-sm">관리자 승인 기반 사용자 관리</p>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">통합 고객지원관리시스템</h1>
+            <p className="mt-2 text-sm text-slate-500">관리자 승인 기반 사용자 관리</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mb-5">
+          <div className="mb-5 grid grid-cols-2 gap-2">
             <button
               type="button"
-              className={`py-2 rounded-lg text-sm font-semibold ${mode === 'login' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`rounded-lg py-2 text-sm font-semibold ${mode === 'login' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
               onClick={() => {
                 setMode('login');
                 clearAuthError();
@@ -121,7 +110,7 @@ const LoginPage: React.FC = () => {
             </button>
             <button
               type="button"
-              className={`py-2 rounded-lg text-sm font-semibold ${mode === 'register' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+              className={`rounded-lg py-2 text-sm font-semibold ${mode === 'register' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}`}
               onClick={() => {
                 setMode('register');
                 clearAuthError();
@@ -133,61 +122,61 @@ const LoginPage: React.FC = () => {
 
           <form onSubmit={mode === 'login' ? handleLoginSubmit : handleRegisterSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1 tracking-tight uppercase">아이디</label>
+              <label className="ml-1 block text-xs font-bold uppercase tracking-tight text-slate-500">아이디</label>
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(event) => setUsername(event.target.value)}
                 placeholder="아이디 입력"
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition bg-white/50 text-slate-800 font-semibold"
+                className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-3 font-semibold text-slate-800 outline-none transition focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {mode === 'register' && (
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1 tracking-tight uppercase">이름</label>
+                <label className="ml-1 block text-xs font-bold uppercase tracking-tight text-slate-500">이름</label>
                 <input
                   type="text"
                   value={registerName}
-                  onChange={(e) => setRegisterName(e.target.value)}
+                  onChange={(event) => setRegisterName(event.target.value)}
                   placeholder="표시 이름 입력"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition bg-white/50 text-slate-800 font-semibold"
+                  className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-3 font-semibold text-slate-800 outline-none transition focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1 tracking-tight uppercase">비밀번호</label>
+              <label className="ml-1 block text-xs font-bold uppercase tracking-tight text-slate-500">비밀번호</label>
               <input
                 type="password"
                 value={mode === 'login' ? password : registerPassword}
-                onChange={(e) => (mode === 'login' ? setPassword(e.target.value) : setRegisterPassword(e.target.value))}
+                onChange={(event) => (mode === 'login' ? setPassword(event.target.value) : setRegisterPassword(event.target.value))}
                 placeholder={mode === 'login' ? '비밀번호 입력' : '신청 비밀번호 입력'}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition bg-white/50 text-slate-800 font-semibold"
+                className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-3 font-semibold text-slate-800 outline-none transition focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             {mode === 'register' && (
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1 tracking-tight uppercase">비밀번호 확인</label>
+                <label className="ml-1 block text-xs font-bold uppercase tracking-tight text-slate-500">비밀번호 확인</label>
                 <input
                   type="password"
                   value={registerPasswordConfirm}
-                  onChange={(e) => setRegisterPasswordConfirm(e.target.value)}
+                  onChange={(event) => setRegisterPasswordConfirm(event.target.value)}
                   placeholder="비밀번호 확인 입력"
-                  className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition bg-white/50 text-slate-800 font-semibold"
+                  className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-3 font-semibold text-slate-800 outline-none transition focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             )}
 
             {mode === 'login' && authError && <p className="text-sm text-red-600">{authError}</p>}
 
-            <Button type="submit" variant="primary" size="lg" isLoading={isLoading} className="w-full mt-2">
+            <Button type="submit" variant="primary" size="lg" isLoading={isLoading} className="mt-2 w-full">
               {mode === 'login' ? '시스템 접속' : '가입 요청 보내기'}
             </Button>
           </form>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

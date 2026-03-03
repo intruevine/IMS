@@ -3,18 +3,15 @@ import { useAppStore } from '@/core/state/store';
 import { Card, Button, Modal, Input, Select, ConfirmModal } from '@/shared/components/ui';
 import { eventTemplatesAPI } from '@/core/api/client';
 import type { CalendarEvent, CalendarEventTemplate, CalendarEventType, CalendarScheduleDivision } from '@/types';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
 import { format } from 'date-fns';
-import koLocale from '@fullcalendar/core/locales/ko';
 import type { EventClickArg, DateSelectArg, EventHoveringArg } from '@fullcalendar/core';
 import type { EventContentArg } from '@fullcalendar/core';
 
 const NATIONAL_HOLIDAY_COLOR = '#dc2626';
 const COMPANY_HOLIDAY_COLOR = '#14b8a6';
 const DEFAULT_EVENT_COLOR = '#64748b';
+const CalendarBoard = React.lazy(() => import('./CalendarBoard'));
+const CALENDAR_FALLBACK_MESSAGE = '일정 화면을 불러오는 중입니다.';
 
 interface EventFormModalProps {
   isOpen: boolean;
@@ -584,7 +581,12 @@ const CalendarPage: React.FC = () => {
   const [calendarView, setCalendarView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'>('dayGridMonth');
   const [hoveredEvent, setHoveredEvent] = useState<CalendarEvent | null>(null);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
-  const calendarRef = useRef<FullCalendar | null>(null);
+  const calendarRef = useRef<{
+    getApi?: () => {
+      view: { type: string };
+      changeView: (view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') => void;
+    };
+  } | null>(null);
 
   useEffect(() => {
     loadCalendarEvents();
@@ -609,9 +611,9 @@ const CalendarPage: React.FC = () => {
   }, [role, loadUsers]);
 
   useEffect(() => {
-    const api = calendarRef.current?.getApi();
-    if (api && api.view.type !== calendarView) {
-      api.changeView(calendarView);
+    const api = calendarRef.current?.getApi?.();
+    if (api?.view.type !== calendarView) {
+      api?.changeView?.(calendarView);
     }
   }, [calendarView]);
 
@@ -889,39 +891,21 @@ const CalendarPage: React.FC = () => {
       )}
 
       <Card className="p-4">
-        <FullCalendar
-          key={`calendar-${additionalHolidays.length}-${additionalHolidays.map(h => h.id).join('-')}`}
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={calendarView}
-          locale={koLocale}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: ''
-          }}
-          allDayText="종일"
-          events={calendarEvents}
-          selectable={true}
-          selectMirror={true}
-          dayMaxEvents={false}
-          weekends={true}
-          dayCellClassNames={getDayCellClasses}
-          dayCellDidMount={handleDayCellDidMount}
-          dayHeaderClassNames={getDayHeaderClasses}
-          select={handleDateSelect}
-          eventClick={handleEventClick}
-          eventMouseEnter={handleEventMouseEnter}
-          eventMouseLeave={handleEventMouseLeave}
-          eventContent={renderEventContent}
-          height="auto"
-          aspectRatio={1.8}
-          slotMinTime="08:00:00"
-          slotMaxTime="20:00:00"
-          allDaySlot={true}
-          slotDuration="00:30:00"
-          snapDuration="00:30:00"
-        />
+        <React.Suspense fallback={<div className="py-16 text-center text-sm text-slate-500">{CALENDAR_FALLBACK_MESSAGE}</div>}>
+          <CalendarBoard
+            calendarKey={`calendar-${additionalHolidays.length}-${additionalHolidays.map(h => h.id).join('-')}`}
+            calendarView={calendarView}
+            calendarEvents={calendarEvents}
+            getDayCellClasses={getDayCellClasses}
+            handleDayCellDidMount={handleDayCellDidMount}
+            getDayHeaderClasses={getDayHeaderClasses}
+            handleDateSelect={handleDateSelect}
+            handleEventClick={handleEventClick}
+            handleEventMouseEnter={handleEventMouseEnter}
+            handleEventMouseLeave={handleEventMouseLeave}
+            renderEventContent={renderEventContent}
+          />
+        </React.Suspense>
       </Card>
 
       {hoveredEvent && (

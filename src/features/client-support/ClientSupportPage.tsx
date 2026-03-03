@@ -1,24 +1,10 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts';
 import { useAppStore } from '@/core/state/store';
 import { Card, Button } from '@/shared/components/ui';
 
 type SupportMode = 'personal' | 'team';
+const ClientSupportCharts = React.lazy(() => import('./ClientSupportCharts'));
 const TEAM_OPTION_VALUE = '__team__';
 
 const SUPPORT_EVENT_TYPES = new Set(['inspection', 'remote_support', 'maintenance', 'sales_support', 'meeting']);
@@ -29,8 +15,6 @@ const TYPE_LABEL: Record<string, string> = {
   sales_support: '영업지원',
   meeting: '회의'
 };
-const CHART_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0ea5e9'];
-
 function toDate(value?: string) {
   if (!value) return null;
   const d = new Date(value);
@@ -83,6 +67,13 @@ const StatCard: React.FC<{ title: string; value: string | number; subtitle?: str
     <p className="text-2xl font-bold text-slate-900">{value}</p>
     {subtitle ? <p className="text-xs text-slate-500 mt-1">{subtitle}</p> : null}
   </Card>
+);
+
+const ChartFallback: React.FC = () => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <Card className="min-h-[22rem] flex items-center justify-center text-sm text-slate-500">차트 데이터를 불러오는 중입니다.</Card>
+    <Card className="min-h-[22rem] flex items-center justify-center text-sm text-slate-500">차트 데이터를 불러오는 중입니다.</Card>
+  </div>
 );
 
 const ClientSupportPage: React.FC = () => {
@@ -451,83 +442,9 @@ const ClientSupportPage: React.FC = () => {
         )}
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">일자별 지원시간 추이</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={summary.byDate}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="hours" name="지원시간(h)" stroke="#2563eb" strokeWidth={2} />
-                <Line type="monotone" dataKey="cases" name="지원건수" stroke="#16a34a" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">고객사별 지원시간 TOP 10</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={summary.byCustomer} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis type="number" />
-                <YAxis dataKey="customer" type="category" width={120} />
-                <Tooltip />
-                <Bar dataKey="hours" name="지원시간(h)" fill="#0ea5e9" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">{mode === 'team' ? '팀원별 지원시간' : '지원유형 비중'}</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              {mode === 'team' ? (
-                <BarChart data={summary.byMember}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="member" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="hours" name="지원시간(h)" fill="#7c3aed" />
-                </BarChart>
-              ) : (
-                <PieChart>
-                  <Tooltip />
-                  <Legend />
-                  <Pie data={summary.byType} dataKey="value" nameKey="type" cx="50%" cy="50%" outerRadius={95} label>
-                    {summary.byType.map((entry, index) => (
-                      <Cell key={`${entry.type}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              )}
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">지원유형 분포</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={summary.byType}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="type" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" name="건수" fill="#f59e0b" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
+      <React.Suspense fallback={<ChartFallback />}>
+        <ClientSupportCharts mode={mode} summary={summary} />
+      </React.Suspense>
     </div>
   );
 };

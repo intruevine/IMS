@@ -29,19 +29,49 @@ import {
 } from '../api/client';
 import { getContractStatus } from '@/shared/utils/contract';
 
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
 function normalizeHolidayDateCompact(value: unknown): string {
   const raw = String(value || '').trim();
   if (!raw) return '';
   if (/^\d{8}$/.test(raw)) return raw;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw.replace(/-/g, '');
   if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) return raw.slice(0, 10).replace(/-/g, '');
-
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return '';
-  const year = parsed.getFullYear();
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getDate()).padStart(2, '0');
-  return `${year}${month}${day}`;
+  if (/^\d{4}[./]\d{2}[./]\d{2}$/.test(raw)) return raw.replace(/[./]/g, '');
+  const enDateMatch = raw.match(/\b([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\b.*\b(\d{4})\b/);
+  if (enDateMatch) {
+    const monthMap: Record<string, string> = {
+      Jan: '01',
+      Feb: '02',
+      Mar: '03',
+      Apr: '04',
+      May: '05',
+      Jun: '06',
+      Jul: '07',
+      Aug: '08',
+      Sep: '09',
+      Oct: '10',
+      Nov: '11',
+      Dec: '12'
+    };
+    const month = monthMap[enDateMatch[2]];
+    const day = String(Number(enDateMatch[3])).padStart(2, '0');
+    const year = enDateMatch[4];
+    if (month) return `${year}${month}${day}`;
+  }
+  // Parse only when an explicit 4-digit year exists in the string.
+  const hasExplicitYear = /\b(19|20)\d{2}\b/.test(raw);
+  if (hasExplicitYear) {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    }
+  }
+  // Do not parse locale-dependent strings without explicit year to avoid wrong years (e.g. 2001/2010).
+  return '';
 }
 
 // ============================================
@@ -167,7 +197,6 @@ interface AppState extends AuthState, UIState, ContractState, DashboardState, Ca
   createCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => Promise<void>;
   updateCalendarEvent: (id: string, changes: Partial<CalendarEvent>) => Promise<void>;
   deleteCalendarEvent: (id: string) => Promise<void>;
-  generateCalendarEventsFromData: () => Promise<number>;
   loadAdditionalHolidays: () => Promise<void>;
   addAdditionalHoliday: (holiday: Omit<AdditionalHoliday, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateAdditionalHoliday: (id: string, changes: Partial<Omit<AdditionalHoliday, 'id'>>) => Promise<void>;
@@ -284,7 +313,7 @@ export const useAppStore = create<AppState>()(
             const users = await usersAPI.getAll();
             set({ users });
           } catch (error) {
-            console.error('Failed to load users:', error);
+            console.error('사용자 목록 로드 실패:', error);
             get().showToast('사용자 목록 로드 실패', 'error');
           }
         },
@@ -295,7 +324,7 @@ export const useAppStore = create<AppState>()(
             const pendingUsers = await usersAPI.getPending();
             set({ pendingUsers });
           } catch (error) {
-            console.error('Failed to load pending users:', error);
+            console.error('승인 대기 사용자 로드 실패:', error);
             get().showToast('승인 대기 목록 로드 실패', 'error');
           }
         },
@@ -306,7 +335,7 @@ export const useAppStore = create<AppState>()(
             await Promise.all([get().loadUsers(), get().loadPendingUsers()]);
             get().showToast('가입 요청을 승인했습니다', 'success');
           } catch (error) {
-            console.error('Failed to approve user request:', error);
+            console.error('사용자 가입 승인 실패:', error);
             const message = error instanceof APIError ? error.message : '가입 승인 실패';
             get().showToast(message, 'error');
             throw error;
@@ -319,7 +348,7 @@ export const useAppStore = create<AppState>()(
             await Promise.all([get().loadUsers(), get().loadPendingUsers()]);
             get().showToast('가입 요청을 반려했습니다', 'success');
           } catch (error) {
-            console.error('Failed to reject user request:', error);
+            console.error('사용자 가입 반려 실패:', error);
             const message = error instanceof APIError ? error.message : '가입 반려 실패';
             get().showToast(message, 'error');
             throw error;
@@ -330,9 +359,9 @@ export const useAppStore = create<AppState>()(
           try {
             await usersAPI.create(user);
             await get().loadUsers();
-            get().showToast('User created successfully');
+            get().showToast('사용자를 생성했습니다');
           } catch (error) {
-            console.error('Failed to create user:', error);
+            console.error('사용자 생성 실패:', error);
             const message = error instanceof APIError ? error.message : '사용자 등록 실패';
             get().showToast(message, 'error');
             throw error;
@@ -349,7 +378,7 @@ export const useAppStore = create<AppState>()(
             await get().loadUsers();
             get().showToast('권한이 변경되었습니다');
           } catch (error) {
-            console.error('Failed to update user role:', error);
+            console.error('사용자 권한 변경 실패:', error);
             get().showToast('권한 변경 실패', 'error');
             throw error;
           }
@@ -359,9 +388,9 @@ export const useAppStore = create<AppState>()(
           try {
             await usersAPI.delete(username);
             await get().loadUsers();
-            get().showToast('User deleted successfully');
+            get().showToast('사용자를 삭제했습니다');
           } catch (error) {
-            console.error('Failed to delete user:', error);
+            console.error('사용자 삭제 실패:', error);
             get().showToast('사용자 삭제 실패', 'error');
             throw error;
           }
@@ -373,13 +402,17 @@ export const useAppStore = create<AppState>()(
             await get().loadUsers();
             get().showToast('비밀번호가 변경되었습니다');
           } catch (error) {
-            console.error('Failed to update user password:', error);
+            console.error('사용자 비밀번호 변경 실패:', error);
             get().showToast('비밀번호 변경 실패', 'error');
             throw error;
           }
         },
 
         logout: () => {
+          if (toastTimer) {
+            clearTimeout(toastTimer);
+            toastTimer = null;
+          }
           clearAuthToken();
           set({
             user: null,
@@ -402,8 +435,14 @@ export const useAppStore = create<AppState>()(
         setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
 
         showToast: (message: string, type: ToastType = 'success') => {
+          if (toastTimer) {
+            clearTimeout(toastTimer);
+          }
           set({ toast: { message, type } });
-          setTimeout(() => set({ toast: null }), 3000);
+          toastTimer = setTimeout(() => {
+            set({ toast: null });
+            toastTimer = null;
+          }, 3000);
         },
 
         hideToast: () => set({ toast: null }),
@@ -444,7 +483,7 @@ export const useAppStore = create<AppState>()(
               isLoading: false 
             });
           } catch (error) {
-            console.error('Failed to load contracts:', error);
+            console.error('계약 목록 로드 실패:', error);
             set({ isLoading: false });
             get().showToast('데이터 로드 실패', 'error');
           }
@@ -472,10 +511,10 @@ export const useAppStore = create<AppState>()(
             await get().loadContracts();
             await get().loadDashboardData();
             set({ isLoading: false });
-            get().showToast('Contract created successfully');
+            get().showToast('계약을 생성했습니다');
             return id;
           } catch (error) {
-            console.error('Failed to create contract:', error);
+            console.error('계약 생성 실패:', error);
             set({ isLoading: false });
             get().showToast('등록 실패', 'error');
             throw error;
@@ -497,9 +536,9 @@ export const useAppStore = create<AppState>()(
             }
             
             set({ isLoading: false });
-            get().showToast('Contract updated successfully');
+            get().showToast('계약을 수정했습니다');
           } catch (error) {
-            console.error('Failed to update contract:', error);
+            console.error('계약 수정 실패:', error);
             set({ isLoading: false });
             get().showToast('수정 실패', 'error');
             throw error;
@@ -513,9 +552,9 @@ export const useAppStore = create<AppState>()(
             await get().loadContracts();
             await get().loadDashboardData();
             set({ isLoading: false });
-            get().showToast('Contract deleted successfully');
+            get().showToast('계약을 삭제했습니다');
           } catch (error) {
-            console.error('Failed to delete contract:', error);
+            console.error('계약 삭제 실패:', error);
             set({ isLoading: false });
             get().showToast('삭제 실패', 'error');
             throw error;
@@ -538,9 +577,9 @@ export const useAppStore = create<AppState>()(
             set({ currentContract: updated, isLoading: false });
             await get().loadDashboardData();
             await get().loadAssets();
-            get().showToast('Asset created successfully');
+            get().showToast('자산을 생성했습니다');
           } catch (error) {
-            console.error('Failed to add asset:', error);
+            console.error('자산 생성 실패:', error);
             set({ isLoading: false });
             get().showToast('등록 실패', 'error');
             throw error;
@@ -554,9 +593,9 @@ export const useAppStore = create<AppState>()(
             const updated = await contractsAPI.getById(contractId);
             set({ currentContract: updated, isLoading: false });
             await get().loadAssets();
-            get().showToast('Asset updated successfully');
+            get().showToast('자산을 수정했습니다');
           } catch (error) {
-            console.error('Failed to update asset:', error);
+            console.error('자산 수정 실패:', error);
             set({ isLoading: false });
             get().showToast('수정 실패', 'error');
             throw error;
@@ -571,9 +610,9 @@ export const useAppStore = create<AppState>()(
             set({ currentContract: updated, isLoading: false });
             await get().loadDashboardData();
             await get().loadAssets();
-            get().showToast('Asset deleted successfully');
+            get().showToast('자산을 삭제했습니다');
           } catch (error) {
-            console.error('Failed to delete asset:', error);
+            console.error('자산 삭제 실패:', error);
             set({ isLoading: false });
             get().showToast('삭제 실패', 'error');
             throw error;
@@ -625,13 +664,13 @@ export const useAppStore = create<AppState>()(
               unreadCount: 0
             });
           } catch (error) {
-            console.error('Failed to load dashboard:', error);
+            console.error('대시보드 로드 실패:', error);
           }
         },
 
         markNotificationAsRead: async (id: string) => {
           // TODO: 알림 API 구현 후 연동
-          console.log('Mark notification as read:', id);
+          console.log('알림 읽음 처리:', id);
         },
 
         // ============================================
@@ -654,7 +693,7 @@ export const useAppStore = create<AppState>()(
             }));
             set({ calendarEvents: mappedEvents });
           } catch (error) {
-            console.error('Failed to load calendar events:', error);
+            console.error('일정 목록 로드 실패:', error);
           }
         },
 
@@ -671,7 +710,7 @@ export const useAppStore = create<AppState>()(
               calendarEvents: [...state.calendarEvents, newEvent]
             }));
           } catch (error) {
-            console.error('Failed to create calendar event:', error);
+            console.error('일정 생성 실패:', error);
             throw error;
           }
         },
@@ -685,7 +724,7 @@ export const useAppStore = create<AppState>()(
               )
             }));
           } catch (error) {
-            console.error('Failed to update calendar event:', error);
+            console.error('일정 수정 실패:', error);
             throw error;
           }
         },
@@ -697,22 +736,7 @@ export const useAppStore = create<AppState>()(
               calendarEvents: state.calendarEvents.filter(e => e.id !== id)
             }));
           } catch (error) {
-            console.error('Failed to delete calendar event:', error);
-            throw error;
-          }
-        },
-
-        generateCalendarEventsFromData: async () => {
-          try {
-            await eventsAPI.generateContractEndEvents();
-            
-            await get().loadCalendarEvents();
-            
-            get().showToast('계약 종료 일정을 자동 생성했습니다', 'success');
-            return 1;
-          } catch (error) {
-            console.error('Failed to generate calendar events:', error);
-            get().showToast('일정 자동 생성 실패', 'error');
+            console.error('일정 삭제 실패:', error);
             throw error;
           }
         },
@@ -723,31 +747,26 @@ export const useAppStore = create<AppState>()(
             return;
           }
           try {
-            console.log('Loading holidays from API...');
             const holidays = await holidaysAPI.getAll();
-            console.log('Loaded holidays from API:', holidays.length, holidays.map((h: any) => ({ id: h.id, date: h.date, name: h.name, type: h.type })));
             const mappedHolidays = holidays
               .map((holiday: any) => ({
                 id: String(holiday.id),
-                date: normalizeHolidayDateCompact(holiday.date),
+                date:
+                  normalizeHolidayDateCompact(holiday.date) ||
+                  String(holiday.date || '').trim(),
                 name: holiday.name,
                 type: (holiday.type || 'company') as HolidayType,
                 created_at: holiday.created_at,
                 updated_at: holiday.updated_at
               }))
-              .filter((holiday) => /^\d{8}$/.test(holiday.date))
+              .filter((holiday) => String(holiday.date || '').trim() !== '')
               .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
-            console.log('Mapped holidays:', mappedHolidays.length, mappedHolidays.map((h: any) => ({ id: h.id, date: h.date, name: h.name, type: h.type })));
             set({
               additionalHolidays: mappedHolidays,
               holidayLoadError: null
             });
-            // Verify set worked
-            setTimeout(() => {
-              console.log('Store state after set:', get().additionalHolidays.length, get().additionalHolidays);
-            }, 0);
           } catch (error) {
-            console.error('Failed to load additional holidays:', error);
+            console.error('추가 공휴일 로드 실패:', error);
             set({ 
               additionalHolidays: [],
               holidayLoadError: '추가 공휴일 데이터를 불러오지 못했습니다. 새로고침 또는 재로그인이 필요할 수 있습니다.' 
@@ -757,19 +776,15 @@ export const useAppStore = create<AppState>()(
 
         addAdditionalHoliday: async (holiday) => {
           try {
-            console.log('Creating holiday:', holiday);
-            const result = await holidaysAPI.create({
+            await holidaysAPI.create({
               date: holiday.date,
               name: holiday.name,
               type: (holiday.type || 'company') as HolidayType
             });
-            console.log('Holiday created:', result);
-            console.log('Reloading holidays...');
             await get().loadAdditionalHolidays();
-            console.log('Holidays reloaded, current state:', get().additionalHolidays);
             get().showToast('추가 공휴일이 등록되었습니다', 'success');
           } catch (error) {
-            console.error('Failed to add holiday:', error);
+            console.error('공휴일 생성 실패:', error);
             get().showToast('공휴일 등록 실패', 'error');
             throw error;
           }
@@ -785,7 +800,7 @@ export const useAppStore = create<AppState>()(
             await get().loadAdditionalHolidays();
             get().showToast('공휴일 정보가 수정되었습니다', 'success');
           } catch (error) {
-            console.error('Failed to update holiday:', error);
+            console.error('공휴일 수정 실패:', error);
             get().showToast('공휴일 수정 실패', 'error');
             throw error;
           }
@@ -797,7 +812,7 @@ export const useAppStore = create<AppState>()(
             await get().loadAdditionalHolidays();
             get().showToast('공휴일이 삭제되었습니다', 'success');
           } catch (error) {
-            console.error('Failed to delete holiday:', error);
+            console.error('공휴일 삭제 실패:', error);
             get().showToast('공휴일 삭제 실패', 'error');
             throw error;
           }
@@ -805,21 +820,15 @@ export const useAppStore = create<AppState>()(
 
         clearAdditionalHolidays: async () => {
           try {
-            try {
-              await holidaysAPI.clearAll();
-            } catch (error) {
-              // Fallback for older backend that does not support DELETE /holidays.
-              if (error instanceof APIError && error.status === 404) {
-                const holidays = await holidaysAPI.getAll();
-                await Promise.all(holidays.map((holiday: any) => holidaysAPI.delete(String(holiday.id))));
-              } else {
-                throw error;
-              }
+            // Keep compatibility with backend versions that do not support DELETE /holidays.
+            const holidays = await holidaysAPI.getAll();
+            for (const holiday of holidays) {
+              await holidaysAPI.delete(String((holiday as any).id));
             }
             await get().loadAdditionalHolidays();
             get().showToast('공휴일 전체 데이터가 초기화되었습니다', 'success');
           } catch (error) {
-            console.error('Failed to clear holidays:', error);
+            console.error('공휴일 전체 삭제 실패:', error);
             get().showToast('공휴일 전체 삭제 실패', 'error');
             throw error;
           }
@@ -854,7 +863,7 @@ export const useAppStore = create<AppState>()(
               isLoading: false 
             });
           } catch (error) {
-            console.error('Failed to load assets:', error);
+            console.error('자산 목록 로드 실패:', error);
             set({ isLoading: false });
             get().showToast('자산 데이터 로드 실패', 'error');
           }
@@ -884,7 +893,7 @@ export const useAppStore = create<AppState>()(
             const members = await membersAPI.getAll(contractId ? { contract_id: contractId } : undefined);
             set({ projectMembers: members });
           } catch (error) {
-            console.error('Failed to load project members:', error);
+            console.error('프로젝트 현황 로드 실패:', error);
             get().showToast('프로젝트 현황 로드 실패', 'error');
           }
         },
@@ -893,9 +902,9 @@ export const useAppStore = create<AppState>()(
           try {
             await membersAPI.create(member);
             await get().loadProjectMembers(member.contract_id);
-            get().showToast('Project member created successfully');
+            get().showToast('프로젝트 현황을 생성했습니다');
           } catch (error) {
-            console.error('Failed to create project member:', error);
+            console.error('프로젝트 현황 생성 실패:', error);
             get().showToast('프로젝트 현황 등록 실패', 'error');
             throw error;
           }
@@ -909,9 +918,9 @@ export const useAppStore = create<AppState>()(
             if (member) {
               await get().loadProjectMembers(member.contract_id);
             }
-            get().showToast('Project member updated successfully');
+            get().showToast('프로젝트 현황을 수정했습니다');
           } catch (error) {
-            console.error('Failed to update project member:', error);
+            console.error('프로젝트 현황 수정 실패:', error);
             get().showToast('프로젝트 현황 수정 실패', 'error');
             throw error;
           }
@@ -926,9 +935,9 @@ export const useAppStore = create<AppState>()(
             if (contractId) {
               await get().loadProjectMembers(contractId);
             }
-            get().showToast('Project member deleted successfully');
+            get().showToast('프로젝트 현황을 삭제했습니다');
           } catch (error) {
-            console.error('Failed to delete project member:', error);
+            console.error('프로젝트 현황 삭제 실패:', error);
             get().showToast('프로젝트 현황 삭제 실패', 'error');
             throw error;
           }
@@ -946,11 +955,9 @@ export const useAppStore = create<AppState>()(
           isAuthenticated: state.isAuthenticated
         }),
         onRehydrateStorage: () => (state) => {
-          console.log('Store rehydrated, additionalHolidays:', state?.additionalHolidays?.length);
           if (state && hasAuthToken()) {
             // Reload holidays after rehydration if authenticated
             setTimeout(() => {
-              console.log('Reloading holidays after rehydration...');
               state.loadAdditionalHolidays?.();
             }, 0);
           }

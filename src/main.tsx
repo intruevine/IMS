@@ -18,13 +18,13 @@ class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, B
   static getDerivedStateFromError(error: Error): BoundaryState {
     return {
       hasError: true,
-      message: error.message || 'Unknown render error',
+      message: error.message || '알 수 없는 렌더링 오류',
       stack: error.stack,
     };
   }
 
   componentDidCatch(error: Error) {
-    console.error('Root render error:', error);
+    console.error('루트 렌더링 오류:', error);
   }
 
   render() {
@@ -32,7 +32,7 @@ class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, B
 
     return (
       <div style={{ padding: 16, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-        <h2 style={{ fontSize: 18, marginBottom: 8 }}>UI Render Error</h2>
+        <h2 style={{ fontSize: 18, marginBottom: 8 }}>UI 렌더링 오류</h2>
         <div style={{ marginBottom: 8 }}>{this.state.message}</div>
         {this.state.stack && <div>{this.state.stack}</div>}
       </div>
@@ -40,13 +40,23 @@ class RootErrorBoundary extends React.Component<{ children: React.ReactNode }, B
   }
 }
 
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error || event.message);
-});
+declare global {
+  interface Window {
+    __imsGlobalErrorHandlersRegistered__?: boolean;
+  }
+}
 
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled rejection:', event.reason);
-});
+if (!window.__imsGlobalErrorHandlersRegistered__) {
+  window.addEventListener('error', (event) => {
+    console.error('전역 오류:', event.error || event.message);
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('처리되지 않은 Promise 거부:', event.reason);
+  });
+
+  window.__imsGlobalErrorHandlersRegistered__ = true;
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

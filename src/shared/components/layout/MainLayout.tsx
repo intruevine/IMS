@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { systemSettingsAPI } from '@/core/api/client';
 import { useAppStore } from '@/core/state/store';
 import { ConfirmModal, Toast } from '@/shared/components/ui';
 
@@ -20,14 +21,14 @@ const publicMenuItems: MenuItem[] = [
   { path: '/calendar', label: '일정 관리', icon: 'calendar' },
   { path: '/client-support-report', label: '고객지원보고서', icon: 'support' },
   { path: '/client-support', label: '고객지원현황', icon: 'support' },
-  { path: '/reports', label: '보고서', icon: 'reports' }
+  { path: '/reports', label: '보고서', icon: 'reports' },
 ];
 
 const apiTestMenuItem: MenuItem = { path: '/api-test', label: 'API 테스트', icon: 'api' };
 const adminMenuItems: MenuItem[] = [{ path: '/settings', label: '설정', icon: 'settings' }];
 
 function MenuIconView({ icon }: { icon: MenuIcon }) {
-  const cls = 'w-5 h-5';
+  const cls = 'h-5 w-5';
   switch (icon) {
     case 'dashboard':
       return (
@@ -108,19 +109,44 @@ const MainLayout: React.FC = () => {
   const roleLabel = role === 'admin' ? '관리자' : role === 'manager' ? '중간 관리자' : '일반 사용자';
   const defaultBrandLogoSrc = `${import.meta.env.BASE_URL}icon-192x192.png`;
   const [brandLogoSrc, setBrandLogoSrc] = useState(defaultBrandLogoSrc);
-  const brandLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    const checkScreenSize = () => setIsMobile(window.innerWidth < 900);
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
+    const mediaQuery = window.matchMedia('(max-width: 899px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
   useEffect(() => {
-    const savedLogo = localStorage.getItem('ims-brand-logo');
-    if (savedLogo) setBrandLogoSrc(savedLogo);
-  }, []);
+    isMountedRef.current = true;
+
+    const loadBrandLogo = async () => {
+      try {
+        const response = await systemSettingsAPI.getBrandLogo();
+        if (!isMountedRef.current) return;
+        setBrandLogoSrc(response.dataUrl || defaultBrandLogoSrc);
+      } catch {
+        if (!isMountedRef.current) return;
+        setBrandLogoSrc(defaultBrandLogoSrc);
+      }
+    };
+
+    const handleBrandLogoUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ dataUrl?: string | null }>).detail;
+      setBrandLogoSrc(detail?.dataUrl || defaultBrandLogoSrc);
+    };
+
+    loadBrandLogo();
+    window.addEventListener('brand-logo-updated', handleBrandLogoUpdated as EventListener);
+
+    return () => {
+      isMountedRef.current = false;
+      window.removeEventListener('brand-logo-updated', handleBrandLogoUpdated as EventListener);
+    };
+  }, [defaultBrandLogoSrc]);
 
   if (location.pathname === '/settings' && role !== 'admin') {
     return <Navigate to="/" replace />;
@@ -132,62 +158,27 @@ const MainLayout: React.FC = () => {
   const handleLogoutConfirm = () => {
     setIsLogoutConfirmOpen(false);
     logout();
-    showToast('로그아웃했습니다', 'success');
+    showToast('로그아웃되었습니다', 'success');
     navigate('/login');
   };
 
-  const handleBrandLogoClick = () => {
-    if (role !== 'admin') return;
-    brandLogoInputRef.current?.click();
-  };
-
-  const handleBrandLogoChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    const file = event.target.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      showToast('이미지 파일만 업로드할 수 있습니다', 'warning');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result) return;
-      setBrandLogoSrc(result);
-      localStorage.setItem('ims-brand-logo', result);
-      showToast('로고가 변경되었습니다', 'success');
-    };
-    reader.onerror = () => {
-      showToast('로고 업로드 중 오류가 발생했습니다', 'error');
-    };
-    reader.readAsDataURL(file);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <input ref={brandLogoInputRef} type="file" accept="image/*" className="hidden" onChange={handleBrandLogoChange} />
+    <div className="flex min-h-screen bg-slate-50">
       {isMobile && (
-        <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4">
+        <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleBrandLogoClick}
-              className={role === 'admin' ? 'cursor-pointer' : 'cursor-default'}
-              aria-label="브랜드 로고"
-              title={role === 'admin' ? '클릭하여 로고 업로드' : '브랜드 로고'}
-            >
-              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
-            </button>
-            <span className="font-bold text-slate-900 text-sm">INTRUEVINE 통합 고객지원관리시스템</span>
+            <div aria-label="브랜드 로고" title="브랜드 로고">
+              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="h-9 w-9 rounded-lg border border-slate-200 object-cover" />
+            </div>
+            <span className="text-sm font-bold text-slate-900">INTRUEVINE 통합 고객지원관리시스템</span>
           </div>
           <button
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            className="w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-lg"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
             aria-label="Toggle menu"
             type="button"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <title>{isMobileMenuOpen ? 'Close menu' : 'Open menu'}</title>
               {isMobileMenuOpen ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -200,59 +191,53 @@ const MainLayout: React.FC = () => {
       )}
 
       {!isMobile && (
-        <aside className="w-64 bg-white border-r border-slate-200 fixed h-full flex flex-col">
-          <div className="h-16 flex items-center px-5 border-b border-slate-200">
-            <button
-              type="button"
-              onClick={handleBrandLogoClick}
-              className={`mr-3 ${role === 'admin' ? 'cursor-pointer' : 'cursor-default'}`}
-              aria-label="브랜드 로고"
-              title={role === 'admin' ? '클릭하여 로고 업로드' : '브랜드 로고'}
-            >
-              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="w-9 h-9 rounded-lg object-cover border border-slate-200" />
-            </button>
+        <aside className="fixed flex h-full w-64 flex-col border-r border-slate-200 bg-white">
+          <div className="flex h-16 items-center border-b border-slate-200 px-5">
+            <div className="mr-3" aria-label="브랜드 로고" title="브랜드 로고">
+              <img src={brandLogoSrc} alt="INTRUEVINE logo" className="h-9 w-9 rounded-lg border border-slate-200 object-cover" />
+            </div>
             <div>
-              <h1 className="font-bold text-slate-900 text-sm">INTRUEVINE</h1>
+              <h1 className="text-sm font-bold text-slate-900">INTRUEVINE</h1>
               <p className="text-xs text-slate-400">통합 고객지원관리시스템</p>
             </div>
           </div>
 
-          <nav className="flex-1 py-4 px-3">
+          <nav className="flex-1 px-3 py-4">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
-                    isActive ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  className={`mb-1 flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
+                    isActive ? 'border border-blue-200 bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
                   <MenuIconView icon={item.icon} />
-                  <span className="font-medium text-sm">{item.label}</span>
+                  <span className="text-sm font-medium">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="p-4 border-t border-slate-200">
+          <div className="border-t border-slate-200 p-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
+                <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 text-sm truncate">{user?.display_name || '사용자'}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900">{user?.display_name || '사용자'}</p>
                 <p className="text-xs text-slate-500">{roleLabel}</p>
               </div>
               <button
                 onClick={() => setIsLogoutConfirmOpen(true)}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label="Logout"
                 type="button"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <title>Logout</title>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m6.364 2.636a9 9 0 11-12.728 0" />
                 </svg>
@@ -265,11 +250,11 @@ const MainLayout: React.FC = () => {
       {isMobile && isMobileMenuOpen && (
         <>
           <button onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 z-40 bg-slate-900/50" aria-label="Close menu" type="button" />
-          <div className="fixed top-16 right-0 bottom-0 w-64 bg-white border-l border-slate-200 z-50">
-            <div className="p-4 border-b border-slate-200">
+          <div className="fixed bottom-0 right-0 top-16 z-50 w-64 border-l border-slate-200 bg-white">
+            <div className="border-b border-slate-200 p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">
+                  <svg className="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
@@ -288,8 +273,8 @@ const MainLayout: React.FC = () => {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-all ${
-                      isActive ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'text-slate-600 hover:bg-slate-50'
+                    className={`mb-1 flex items-center gap-3 rounded-lg px-4 py-3 transition-all ${
+                      isActive ? 'border border-blue-200 bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <MenuIconView icon={item.icon} />
@@ -299,13 +284,13 @@ const MainLayout: React.FC = () => {
               })}
             </nav>
 
-            <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200">
+            <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 p-4">
               <button
                 onClick={() => setIsLogoutConfirmOpen(true)}
-                className="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg w-full transition-colors"
+                className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-red-600 transition-colors hover:bg-red-50"
                 type="button"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <title>Logout</title>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m6.364 2.636a9 9 0 11-12.728 0" />
                 </svg>
@@ -316,8 +301,8 @@ const MainLayout: React.FC = () => {
         </>
       )}
 
-      <main className="flex-1 min-h-screen" style={{ marginLeft: isMobile ? 0 : 256 }}>
-        <div className="p-6 max-w-7xl mx-auto" style={{ paddingTop: isMobile ? 88 : 24 }}>
+      <main className="min-h-screen flex-1" style={{ marginLeft: isMobile ? 0 : 256 }}>
+        <div className="mx-auto max-w-7xl p-6" style={{ paddingTop: isMobile ? 88 : 24 }}>
           <Outlet />
         </div>
       </main>

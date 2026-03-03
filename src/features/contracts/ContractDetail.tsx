@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { useAppStore } from '@/core/state/store';
 import { assetsAPI } from '@/core/api/client';
 import { Card, Button, StatusBadge, ConfirmModal } from '@/shared/components/ui';
@@ -139,11 +138,9 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                   <span className="font-bold text-slate-900">{progress}%</span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 1 }}
-                    className={`h-full rounded-full ${
+                  <div
+                    style={{ width: `${progress}%` }}
+                    className={`h-full rounded-full transition-[width] duration-700 ${
                       status === 'expired' ? 'bg-slate-400' :
                       status === 'expiring' ? 'bg-red-500' : 'bg-primary-500'
                     }`}
@@ -225,13 +222,8 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
 
           {displayContract.items.length > 0 ? (
             <div className="space-y-3">
-              {displayContract.items.map((asset, index) => (
-                <motion.div
-                  key={asset.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
+              {displayContract.items.map((asset) => (
+                <div key={asset.id}>
                   <Card className="group">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -314,7 +306,7 @@ export const ContractDetail: React.FC<ContractDetailProps> = ({
                       </div>
                     </div>
                   </Card>
-                </motion.div>
+                </div>
               ))}
             </div>
           ) : (

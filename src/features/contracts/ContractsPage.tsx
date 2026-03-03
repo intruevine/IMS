@@ -51,9 +51,9 @@ const ContractsPage: React.FC = () => {
     setSelectedContract(null);
   };
 
-  const handleExportExcel = () => {
-    exportToExcel(contracts);
-    showToast('Excel 내보내기가 완료되었습니다.', 'success');
+  const handleExportExcel = async () => {
+    await exportToExcel(contracts);
+    showToast('CSV 내보내기가 완료되었습니다.', 'success');
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +65,7 @@ const ContractsPage: React.FC = () => {
       setImportPreview(importedContracts);
       setIsImportModalOpen(true);
     } catch (error) {
-      showToast('Excel 파일을 읽는 중 오류가 발생했습니다.', 'error');
+      showToast('CSV 파일을 읽는 중 오류가 발생했습니다.', 'error');
     }
   };
 
@@ -148,15 +148,15 @@ const ContractsPage: React.FC = () => {
             <input
               type="file"
               ref={fileInputRef}
-              accept=".xlsx,.xls"
+              accept=".csv"
               onChange={handleFileSelect}
               className="hidden"
             />
             <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
-              Excel 가져오기
+              CSV 가져오기
             </Button>
             <Button variant="secondary" onClick={handleExportExcel}>
-              Excel 내보내기
+              CSV 내보내기
             </Button>
             <Button
               variant="primary"
@@ -361,22 +361,22 @@ const ContractsPage: React.FC = () => {
       <Modal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        title="Bulk Import Preview"
+        title="대량 가져오기 미리보기"
         size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => setIsImportModalOpen(false)}>
-              Cancel
+              취소
             </Button>
             <Button variant="primary" onClick={handleImportConfirm}>
-              Import {importPreview.length} contracts
+              계약 {importPreview.length}건 가져오기
             </Button>
           </>
         }
       >
         <div className="max-h-[60vh] overflow-y-auto">
           <p className="text-sm text-slate-500 mb-4">
-            Previewing <span className="font-semibold">{importPreview.length}</span> contracts before import:
+            가져오기 전에 <span className="font-semibold">{importPreview.length}</span>건의 계약을 확인합니다.
           </p>
           <div className="space-y-2">
             {importPreview.map((contract, index) => (
@@ -390,7 +390,7 @@ const ContractsPage: React.FC = () => {
                     <p className="text-sm text-slate-500 truncate">{contract.project_title}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-slate-400">Assets: {contract.items.length}</p>
+                    <p className="text-xs text-slate-400">자산 수: {contract.items.length}</p>
                   </div>
                 </div>
               </Card>

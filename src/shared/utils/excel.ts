@@ -1,188 +1,196 @@
-import * as XLSX from 'xlsx';
-import type { Contract, AssetItem } from '@/types';
+import type { AssetItem, Contract } from '@/types';
+import { downloadCsv, readCsvFile } from './csv';
 
-/**
- * 계약 및 자산 데이터를 Excel 파일로보내기
- */
-export const exportToExcel = (contracts: Contract[], filename?: string) => {
-  // 계약 시트 데이터
-  const contractData = contracts.map(contract => ({
-    'ID': contract.id,
-    '고객사명': contract.customer_name,
-    '프로젝트명': contract.project_title,
-    '시작일': contract.start_date,
-    '종료일': contract.end_date,
-    '비고': contract.notes || '',
-    '자산수': contract.items.length,
-    '생성일': contract.created_at || '',
-    '수정일': contract.updated_at || ''
-  }));
+const CONTRACT_CSV_HEADERS = [
+  'contract_id',
+  'customer_name',
+  'project_title',
+  'project_type',
+  'start_date',
+  'end_date',
+  'notes',
+  'asset_id',
+  'asset_category',
+  'asset_item',
+  'asset_product',
+  'asset_qty',
+  'asset_cycle',
+  'asset_scope',
+  'asset_company',
+  'asset_remark',
+  'engineer_name',
+  'engineer_phone',
+  'engineer_email'
+] as const;
 
-  // 자산 시트 데이터
-  const assetData: (AssetItem & { contract_id: number; customer_name: string; project_title: string })[] = [];
-  contracts.forEach(contract => {
-    contract.items.forEach(asset => {
-      assetData.push({
-        ...asset,
-        contract_id: contract.id,
-        customer_name: contract.customer_name,
-        project_title: contract.project_title
-      });
+type ContractCsvHeader = (typeof CONTRACT_CSV_HEADERS)[number];
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function normalizeProjectType(value: string) {
+  return value === 'construction' ? 'construction' : 'maintenance';
+}
+
+function normalizeAssetCategory(value: string): AssetItem['category'] {
+  return value === 'SW' ? 'SW' : 'HW';
+}
+
+function normalizeAssetCycle(value: string): AssetItem['cycle'] {
+  if (value === '분기' || value === '반기' || value === '연' || value === '장애시') return value;
+  return '월';
+}
+
+export const exportToExcel = async (contracts: Contract[], filename?: string) => {
+  const rows: unknown[][] = [[...CONTRACT_CSV_HEADERS]];
+
+  contracts.forEach((contract) => {
+    if (contract.items.length === 0) {
+      rows.push([
+        contract.id,
+        contract.customer_name,
+        contract.project_title,
+        contract.project_type,
+        contract.start_date,
+        contract.end_date,
+        contract.notes || '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
+      ]);
+      return;
+    }
+
+    contract.items.forEach((asset) => {
+      rows.push([
+        contract.id,
+        contract.customer_name,
+        contract.project_title,
+        contract.project_type,
+        contract.start_date,
+        contract.end_date,
+        contract.notes || '',
+        asset.id,
+        asset.category,
+        asset.item,
+        asset.product,
+        asset.qty,
+        asset.cycle,
+        asset.scope || '',
+        asset.company || '',
+        asset.remark || '',
+        asset.engineer?.main?.name || '',
+        asset.engineer?.main?.phone || '',
+        asset.engineer?.main?.email || ''
+      ]);
     });
   });
 
-  const assetSheetData = assetData.map(asset => ({
-    '계약ID': asset.contract_id,
-    '고객사': asset.customer_name,
-    '프로젝트': asset.project_title,
-    '자산ID': asset.id,
-    '카테고리': asset.category,
-    '품목': asset.item,
-    '모델': asset.product,
-    '수량': asset.qty,
-    '점검주기': asset.cycle,
-    '유지보수범위': asset.scope || '',
-    '업체명': asset.company || '',
-    '비고': asset.remark || '',
-    '주담당자': asset.engineer?.main?.name || '',
-    '주담당자연락처': asset.engineer?.main?.phone || '',
-    '주담당자이메일': asset.engineer?.main?.email || ''
-  }));
-
-  // 워크북 생성
-  const wb = XLSX.utils.book_new();
-  
-  // 계약 시트 추가
-  const contractWs = XLSX.utils.json_to_sheet(contractData);
-  XLSX.utils.book_append_sheet(wb, contractWs, '계약 목록');
-  
-  // 자산 시트 추가
-  const assetWs = XLSX.utils.json_to_sheet(assetSheetData);
-  XLSX.utils.book_append_sheet(wb, assetWs, '자산 목록');
-
-  // 파일 저장
-  const defaultFilename = `IMS_계약_자산_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(wb, filename || defaultFilename);
+  downloadCsv(filename || `IMS_contracts_assets_${today()}.csv`, rows);
 };
 
-/**
- * Excel 파일에서 계약 및 자산 데이터 가져오기
- */
 export const importFromExcel = async (file: File): Promise<Contract[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        
-        // 계약 시트 읽기
-        const contractSheetName = workbook.SheetNames[0];
-        const contractSheet = workbook.Sheets[contractSheetName];
-        const contractJson = XLSX.utils.sheet_to_json(contractSheet);
-        
-        // 자산 시트 읽기
-        const assetSheetName = workbook.SheetNames[1] || '자산 목록';
-        const assetSheet = workbook.Sheets[assetSheetName];
-        const assetJson = XLSX.utils.sheet_to_json(assetSheet);
+  const rows = await readCsvFile(file);
+  if (rows.length <= 1) {
+    throw new Error('CSV 파일에 데이터가 없습니다.');
+  }
 
-        // 계약 데이터 변환
-        const contracts: Contract[] = contractJson.map((row: any, index: number) => {
-          const contractId = row['ID'] || index + 1;
-          
-          // 해당 계약의 자산 찾기
-          const contractAssets = assetJson
-            .filter((assetRow: any) => assetRow['계약ID'] === contractId)
-            .map((assetRow: any, assetIndex: number) => ({
-              id: assetRow['자산ID'] || Date.now() + assetIndex,
-              category: assetRow['카테고리'] || 'HW',
-              item: assetRow['품목'] || '',
-              product: assetRow['모델'] || '',
-              details: [],
-              qty: assetRow['수량'] || 1,
-              cycle: assetRow['점검주기'] || '월',
-              scope: assetRow['유지보수범위'] || '',
-              remark: assetRow['비고'] || '',
-              company: assetRow['업체명'] || '',
-              engineer: {
-                main: {
-                  name: assetRow['주담당자'] || '',
-                  phone: assetRow['주담당자연락처'] || '',
-                  email: assetRow['주담당자이메일'] || ''
-                }
-              }
-            } as AssetItem));
-
-          return {
-            id: contractId,
-            customer_name: row['고객사명'] || '',
-            project_title: row['프로젝트명'] || '',
-            start_date: row['시작일'] || new Date().toISOString().split('T')[0],
-            end_date: row['종료일'] || new Date().toISOString().split('T')[0],
-            notes: row['비고'] || '',
-            items: contractAssets,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as Contract;
-        });
-
-        resolve(contracts);
-      } catch (error) {
-        reject(new Error('Excel 파일을 파싱하는 중 오류가 발생했습니다'));
-      }
-    };
-
-    reader.onerror = () => {
-      reject(new Error('파일을 읽는 중 오류가 발생했습니다'));
-    };
-
-    reader.readAsBinaryString(file);
+  const [headerRow, ...dataRows] = rows;
+  const normalizedHeader = headerRow.map((header) => header.trim());
+  const headerIndex = new Map<string, number>();
+  normalizedHeader.forEach((header, index) => {
+    headerIndex.set(header, index);
   });
+
+  const missingHeaders = CONTRACT_CSV_HEADERS.filter((header) => !headerIndex.has(header));
+  if (missingHeaders.length > 0) {
+    throw new Error(`CSV 헤더가 올바르지 않습니다: ${missingHeaders.join(', ')}`);
+  }
+
+  const contracts = new Map<number, Contract>();
+
+  dataRows.forEach((row, rowIndex) => {
+    const getValue = (header: ContractCsvHeader) => row[headerIndex.get(header) ?? -1] || '';
+    const contractId = Number(getValue('contract_id') || rowIndex + 1);
+    const existing = contracts.get(contractId);
+
+    const baseContract =
+      existing ||
+      ({
+        id: contractId,
+        customer_name: getValue('customer_name'),
+        project_title: getValue('project_title'),
+        project_type: normalizeProjectType(getValue('project_type')),
+        start_date: getValue('start_date') || today(),
+        end_date: getValue('end_date') || today(),
+        notes: getValue('notes'),
+        items: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } satisfies Contract);
+
+    const assetIdRaw = getValue('asset_id');
+    if (assetIdRaw) {
+      baseContract.items.push({
+        id: Number(assetIdRaw),
+        category: normalizeAssetCategory(getValue('asset_category')),
+        item: getValue('asset_item'),
+        product: getValue('asset_product'),
+        details: [],
+        qty: Number(getValue('asset_qty') || 1),
+        cycle: normalizeAssetCycle(getValue('asset_cycle')),
+        scope: getValue('asset_scope'),
+        remark: getValue('asset_remark'),
+        company: getValue('asset_company'),
+        engineer: {
+          main: {
+            name: getValue('engineer_name'),
+            phone: getValue('engineer_phone'),
+            email: getValue('engineer_email')
+          }
+        }
+      });
+    }
+
+    contracts.set(contractId, baseContract);
+  });
+
+  return Array.from(contracts.values());
 };
 
-/**
- * Excel 템플릿 생성 (빈 양식)
- */
-export const downloadTemplate = () => {
-  // 샘플 데이터
-  const sampleContract = [{
-    'ID': 1,
-    '고객사명': '한국전자',
-    '프로젝트명': '2025년 통합보안 유지보수',
-    '시작일': '2025-01-01',
-    '종료일': '2025-12-31',
-    '비고': '특이사항 없음',
-    '자산수': 1,
-    '생성일': '',
-    '수정일': ''
-  }];
-
-  const sampleAsset = [{
-    '계약ID': 1,
-    '고객사': '한국전자',
-    '프로젝트': '2025년 통합보안 유지보수',
-    '자산ID': 101,
-    '카테고리': 'HW',
-    '품목': '방화벽',
-    '모델': 'AXGATE 1300S',
-    '수량': 2,
-    '점검주기': '월',
-    '유지보수범위': 'HW 무상 지원 포함',
-    '업체명': '이테크시스템',
-    '비고': '특이사항 없음',
-    '주담당자': '이복한',
-    '주담당자연락처': '010-9192-1348',
-    '주담당자이메일': 'bhlee@physis.kr'
-  }];
-
-  const wb = XLSX.utils.book_new();
-  
-  const contractWs = XLSX.utils.json_to_sheet(sampleContract);
-  XLSX.utils.book_append_sheet(wb, contractWs, '계약 목록');
-  
-  const assetWs = XLSX.utils.json_to_sheet(sampleAsset);
-  XLSX.utils.book_append_sheet(wb, assetWs, '자산 목록');
-
-  XLSX.writeFile(wb, 'IMS_계약_자산_템플릿.xlsx');
+export const downloadTemplate = async () => {
+  downloadCsv('IMS_contracts_assets_template.csv', [
+    [...CONTRACT_CSV_HEADERS],
+    [
+      1,
+      '샘플 고객사',
+      '2026 통합 유지보수',
+      'maintenance',
+      '2026-01-01',
+      '2026-12-31',
+      '샘플 계약',
+      101,
+      'HW',
+      '방화벽',
+      'AXGATE 1300S',
+      2,
+      '분기',
+      '정기 점검 포함',
+      '인투루바인',
+      '샘플 자산',
+      '홍길동',
+      '010-1234-5678',
+      'sample@example.com'
+    ]
+  ]);
 };

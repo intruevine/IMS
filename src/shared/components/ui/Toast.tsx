@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/core/state/store';
 
 const iconMap = {
@@ -42,29 +41,22 @@ export const Toast: React.FC = () => {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 50, x: '-50%' }}
-        animate={{ opacity: 1, y: 0, x: '-50%' }}
-        exit={{ opacity: 0, y: 20, x: '-50%' }}
-        className={`
-          fixed bottom-6 left-1/2 z-[120]
-          px-6 py-4 rounded-xl shadow-2xl
-          flex items-center gap-3 min-w-[300px]
-          ${styles[toast.type]}
-        `}
+    <div
+      className={`
+        fixed bottom-6 left-1/2 z-[120] flex min-w-[300px] -translate-x-1/2 items-center gap-3 rounded-xl px-6 py-4 shadow-2xl
+        ${styles[toast.type]}
+      `}
+    >
+      {iconMap[toast.type]}
+      <span className="font-medium">{toast.message}</span>
+      <button
+        onClick={hideToast}
+        className="ml-2 text-current opacity-50 hover:opacity-100"
       >
-        {iconMap[toast.type]}
-        <span className="font-medium">{toast.message}</span>
-        <button
-          onClick={hideToast}
-          className="ml-2 text-current opacity-50 hover:opacity-100"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </motion.div>
-    </AnimatePresence>
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
   );
 };
