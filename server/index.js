@@ -133,17 +133,22 @@ app.get('/api', (req, res) => {
 
 // Start server
 async function startServer() {
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`API Base URL: http://localhost:${PORT}/api`);
+  });
+
+  server.on('error', (error) => {
+    console.error('Server listen error:', error);
+    process.exit(1);
+  });
+
   try {
     await initDatabase();
     console.log('Database initialized');
-
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`API Base URL: http://localhost:${PORT}/api`);
-    });
   } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
+    // Keep the API process up so proxy requests do not fail with 502.
+    console.error('Database initialization failed after server start:', error);
   }
 }
 
