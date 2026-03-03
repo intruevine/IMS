@@ -3,6 +3,10 @@ const router = express.Router();
 const { pool } = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 
+function isAdmin(req) {
+  return req.user?.role === 'admin';
+}
+
 function normalizeDateTime(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -143,6 +147,105 @@ router.post('/', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error creating client support report:', error);
     res.status(500).json({ error: 'Failed to create client support report' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+router.put('/:id', authenticateToken, async (req, res) => {
+  let conn;
+  try {
+    const customerName = String(req.body?.customerName || req.body?.customer_name || '').trim();
+    if (!customerName) {
+      return res.status(400).json({ error: 'customerName is required' });
+    }
+
+    const contractIdRaw = req.body?.contractId ?? req.body?.contract_id ?? null;
+    const contractId = Number(contractIdRaw);
+    const resolvedContractId =
+      contractIdRaw === null || contractIdRaw === undefined || Number.isNaN(contractId) || contractId <= 0
+        ? null
+        : contractId;
+
+    const requestAt = normalizeDateTime(req.body?.requestAt ?? req.body?.request_at);
+    const completedAt = normalizeDateTime(req.body?.completedAt ?? req.body?.completed_at);
+    if (requestAt === undefined || completedAt === undefined) {
+      return res.status(400).json({ error: 'requestAt/completedAt must be YYYY-MM-DD HH:mm or datetime-local format' });
+    }
+
+    const supportTypes = Array.isArray(req.body?.supportTypes)
+      ? req.body.supportTypes.map((value) => String(value).trim()).filter(Boolean)
+      : [];
+
+    conn = await pool.getConnection();
+    const [existing] = await conn.query('SELECT id FROM client_support_reports WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Client support report not found' });
+    }
+
+    await conn.query(
+      `UPDATE client_support_reports
+       SET contract_id = ?,
+           customer_name = ?,
+           support_summary = ?,
+           system_name = ?,
+           support_types = ?,
+           requester = ?,
+           request_at = ?,
+           assignee = ?,
+           completed_at = ?,
+           request_detail = ?,
+           cause = ?,
+           support_detail = ?,
+           overall_opinion = ?,
+           note = ?
+       WHERE id = ?`,
+      [
+        resolvedContractId,
+        customerName,
+        String(req.body?.supportSummary || req.body?.support_summary || '').trim(),
+        String(req.body?.systemName || req.body?.system_name || '').trim(),
+        JSON.stringify(supportTypes),
+        String(req.body?.requester || '').trim(),
+        requestAt || null,
+        String(req.body?.assignee || '').trim(),
+        completedAt || null,
+        String(req.body?.requestDetail || req.body?.request_detail || '').trim(),
+        String(req.body?.cause || '').trim(),
+        String(req.body?.supportDetail || req.body?.support_detail || '').trim(),
+        String(req.body?.overallOpinion || req.body?.overall_opinion || '').trim(),
+        String(req.body?.note || '').trim(),
+        req.params.id
+      ]
+    );
+
+    res.json({ message: 'Client support report updated successfully' });
+  } catch (error) {
+    console.error('Error updating client support report:', error);
+    res.status(500).json({ error: 'Failed to update client support report' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+router.delete('/:id', authenticateToken, async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin permission required' });
+  }
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const [existing] = await conn.query('SELECT id FROM client_support_reports WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Client support report not found' });
+    }
+
+    await conn.query('DELETE FROM client_support_reports WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Client support report deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting client support report:', error);
+    res.status(500).json({ error: 'Failed to delete client support report' });
   } finally {
     if (conn) conn.release();
   }

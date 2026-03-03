@@ -98,6 +98,12 @@ npm run preview
 - **관리자**: admin / admin
 - **사용자**: user / user
 
+## Production
+
+- App: `https://intruevine.dscloud.biz/MA/`
+- API: `https://intruevine.dscloud.biz/api/`
+- Quick check: `npm run check:prod`
+
 ## 📊 데이터 구조
 
 ### Contract (계약)

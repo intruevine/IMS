@@ -1,152 +1,95 @@
-﻿3# Intruevine IMS 諛고룷 媛?대뱶
+# Intruevine IMS Deployment Guide
 
-## 諛고룷 ?뺣낫
-- **?ъ씠??URL**: https://intruevine.dscloud.biz
-- **諛고룷 ?붾젆?좊━**: `/web_packages/MA` (?먮뒗 `C:\web_packages\MA`)
-- **鍮뚮뱶 ?대뜑**: `dist/`
+## Current Production State
 
-## 諛고룷 諛⑸쾿
+- Public app URL: `https://intruevine.dscloud.biz/MA/`
+- Public API URL: `https://intruevine.dscloud.biz/api/`
+- NAS frontend root: `/volume1/web_packages/MA`
+- NAS backend root: `/volume1/web_packages/MA/server`
 
-### 諛⑸쾿 1: 濡쒖뺄 諛고룷 ?ㅽ겕由쏀듃 ?ъ슜 (Windows)
+## Important Notes
 
-1. 諛고룷 ?ㅽ겕由쏀듃 ?ㅽ뻾:
-```batch
-deploy.bat
-```
+- Do not use `https://api.intruevine.dscloud.biz` for production traffic.
+- The active production API base is `https://intruevine.dscloud.biz/api`.
+- Synology Reverse Proxy host-wide rules for `intruevine.dscloud.biz` were removed because they broke static file serving.
 
-2. ?ㅽ겕由쏀듃媛 ?먮룞?쇰줈:
-   - 湲곗〈 ?뚯씪 諛깆뾽 ?앹꽦
-   - `dist/` ?대뜑 ?댁슜??諛고룷 ?붾젆?좊━濡?蹂듭궗
-   - ?꾨즺 硫붿떆吏 ?쒖떆
+## Frontend Deploy
 
-### 諛⑸쾿 2: ?섎룞 諛고룷
+1. Build the frontend:
 
-1. **鍮뚮뱶** (?대? ?꾨즺??:
 ```bash
 npm run build
 ```
 
-2. **dist ?대뜑 ?댁슜??諛고룷 ?붾젆?좊━濡?蹂듭궗**:
-   - Windows ?먯깋湲곗뿉??`dist/` ?대뜑 ?댁슜 ?좏깮
-   - `C:\web_packages\MA` (?먮뒗 吏?뺣맂 寃쎈줈)濡?蹂듭궗
-   - 湲곗〈 ?뚯씪 ??뼱?곌린
+2. Upload `dist/*` into:
 
-### 諛⑸쾿 3: SSH/FTP 諛고룷 (?먭꺽 ?쒕쾭)
+```text
+/volume1/web_packages/MA/
+```
 
-#### SSH (Linux/Mac)
+3. Verify:
+
+- `https://intruevine.dscloud.biz/MA/`
+- `https://intruevine.dscloud.biz/MA/icon-192x192.png`
+
+## Backend Runtime
+
+- Backend entry: `/volume1/web_packages/MA/server/index.js`
+- Node binary on NAS: `/var/packages/Node.js_v20/target/usr/local/bin/node`
+- Boot script: `/usr/local/etc/rc.d/S99intruevineims.sh`
+- Backend log: `/volume1/web_packages/MA/server/app.log`
+
+## Nginx Runtime
+
+- Persistent custom vhost: `/usr/local/etc/nginx/sites-enabled/intruevine.custom.conf`
+- Removed Synology reverse proxy source: `/usr/syno/etc/www/ReverseProxy.json`
+
+The custom vhost handles:
+
+- `/MA` and static files from `/volume1/web_packages`
+- `/api` and `/MA/api` proxy to `127.0.0.1:3001`
+
+## Health Checks
+
+Check these after deploy or reboot:
+
+```text
+https://intruevine.dscloud.biz/MA/
+https://intruevine.dscloud.biz/api/
+https://intruevine.dscloud.biz/MA/icon-192x192.png
+```
+
+Expected:
+
+- `/MA/` -> `200`
+- `/api/` -> `200`
+- icon -> `200`
+
+## Troubleshooting
+
+If `/MA/` fails:
+
+- Check `/usr/local/etc/nginx/sites-enabled/intruevine.custom.conf`
+- Check files under `/volume1/web_packages/MA`
+
+If `/api/` fails:
+
+- Check backend process:
+
 ```bash
-# 1. 鍮뚮뱶
-npm run build
-
-# 2. SSH濡??쒕쾭 ?묒냽 ???뚯씪 蹂듭궗
-scp -r dist/* boazkim@intruevine.dscloud.biz:/web_packages/MA/
+ps -ef | grep 'node index.js'
+curl http://127.0.0.1:3001/api/
 ```
 
-#### FTP/SFTP
+- Restart backend boot script:
+
 ```bash
-# FileZilla ?먮뒗 WinSCP ?ъ슜
-# ?몄뒪?? intruevine.dscloud.biz
-# ?ъ슜?? boazkim
-# 鍮꾨?踰덊샇: R@kaf_427
-# 濡쒖뺄: dist/
-# ?먭꺽: /web_packages/MA
+sudo /usr/local/etc/rc.d/S99intruevineims.sh restart
 ```
 
-## 諛고룷???뚯씪 援ъ“
+- Reload nginx:
 
+```bash
+sudo nginx -t
+sudo nginx -s reload
 ```
-/web_packages/MA/
-?쒋?? index.html              # 硫붿씤 ?섏씠吏
-?쒋?? assets/
-??  ?쒋?? index-*.js         # JavaScript 踰덈뱾
-??  ?붴?? index-*.css        # CSS ?ㅽ????쒋?? manifest.webmanifest    # PWA 留ㅻ땲?섏뒪???쒋?? registerSW.js          # ?쒕퉬???뚯빱 ?깅줉
-?쒋?? sw.js                  # ?쒕퉬???뚯빱
-?붴?? workbox-*.js           # Workbox ?쇱씠釉뚮윭由?```
-
-## 諛고룷 ???뺤씤?ы빆
-
-1. **?뱀궗?댄듃 ?묒냽**: https://intruevine.dscloud.biz
-2. **濡쒓렇???뚯뒪??*:
-   - 愿由ъ옄: admin / admin
-   - ?ъ슜?? user / user
-3. **PWA 湲곕뒫 ?뺤씤** (紐⑤컮???곗뒪?ы깙)
-4. **罹먯떆 ??젣** (Ctrl+F5 ?먮뒗 Cmd+Shift+R)
-
-## 臾몄젣 ?닿껐
-
-### ?섏씠吏媛 濡쒕뱶?섏? ?딆쓣 ??- 釉뚮씪?곗? 罹먯떆 ??젣 (Ctrl+Shift+Delete)
-- ?쒕쾭 濡쒓렇 ?뺤씤
-- ?뚯씪 沅뚰븳 ?뺤씤 (755 ?먮뒗 644)
-
-### 404 ?ㅻ쪟
-- index.html ?뚯씪 ?뺤씤
-- .htaccess ?뚯씪 (Apache) ?먮뒗 nginx ?ㅼ젙 ?뺤씤
-- 寃쎈줈 ??뚮Ц???뺤씤
-
-### ?ㅽ????ㅽ겕由쏀듃 濡쒕뱶 ?ㅻ쪟
-- 媛쒕컻???꾧뎄 (F12) ??Network ???뺤씤
-- assets/ ?대뜑媛 ?щ컮瑜닿쾶 蹂듭궗?섏뿀?붿? ?뺤씤
-- MIME ????ㅼ젙 ?뺤씤
-
-## ?쒕쾭 ?ㅼ젙 (Apache .htaccess)
-
-```apache
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
-
-<IfModule mod_headers.c>
-  <FilesMatch "\.(js|css)$">
-    Header set Cache-Control "max-age=31536000, immutable"
-  </FilesMatch>
-</IfModule>
-```
-
-## ?쒕쾭 ?ㅼ젙 (Nginx)
-
-```nginx
-server {
-    listen 80;
-    server_name intruevine.dscloud.biz;
-    root /web_packages/MA;
-    index index.html;
-
-    # Backend API reverse proxy (Express: 127.0.0.1:3001)
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001/api/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Ensure /MA path is served by SPA entrypoint
-    location /MA/ {
-        try_files $uri $uri/ /MA/index.html;
-    }
-
-    location = /MA {
-        return 301 /MA/;
-    }
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
-## ?곕씫泥?- 媛쒕컻?? Intruevine Team
-- 踰꾩쟾: v2.0.0
-- 鍮뚮뱶 ?좎쭨: 2025.02.23
-

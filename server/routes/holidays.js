@@ -28,20 +28,17 @@ function toRow(holiday) {
     const day = String(d.getDate()).padStart(2, '0');
     dateStr = `${year}-${month}-${day}`;
   } else if (holiday.date && typeof holiday.date === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(holiday.date)) {
+    if (/^\d{8}$/.test(holiday.date)) {
+      dateStr = `${holiday.date.slice(0, 4)}-${holiday.date.slice(4, 6)}-${holiday.date.slice(6, 8)}`;
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(holiday.date)) {
       dateStr = holiday.date;
     } else if (/^\d{4}-\d{2}-\d{2}T/.test(holiday.date)) {
       dateStr = holiday.date.slice(0, 10);
+    } else if (/^\d{4}[./]\d{2}[./]\d{2}$/.test(holiday.date)) {
+      dateStr = holiday.date.replace(/[./]/g, '-');
     } else {
-      const d = new Date(holiday.date);
-      if (!Number.isNaN(d.getTime())) {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        dateStr = `${year}-${month}-${day}`;
-      } else {
-        dateStr = '';
-      }
+      // Ignore locale-dependent strings like "Fri Mar 02" to prevent wrong years.
+      dateStr = '';
     }
   }
   return {

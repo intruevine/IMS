@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import { Button } from './Button';
 
 interface ModalProps {
@@ -22,12 +22,12 @@ export const Modal: React.FC<ModalProps> = ({
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    
+
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden';
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
@@ -45,18 +45,15 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
+
       <div
-        className="absolute inset-0 bg-slate-900/50"
-        onClick={onClose}
-      />
-      
-      {/* Modal Content */}
-      <div className={`
-        relative w-full ${sizes[size]} 
+        className={`
+        relative w-full ${sizes[size]}
         bg-white rounded-xl border border-slate-200 shadow-xl
         max-h-[90vh] flex flex-col
-      `}>
+      `}
+      >
         {title && (
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-900">{title}</h3>
@@ -72,16 +69,10 @@ export const Modal: React.FC<ModalProps> = ({
             </button>
           </div>
         )}
-        
-        <div className="flex-1 overflow-y-auto p-6">
-          {children}
-        </div>
-        
-        {footer && (
-          <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
-            {footer}
-          </div>
-        )}
+
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+
+        {footer && <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">{footer}</div>}
       </div>
     </div>
   );
@@ -96,6 +87,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'primary';
+  icon?: 'warning' | 'logout' | 'info';
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -106,7 +98,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   confirmText = '확인',
   cancelText = '취소',
-  variant = 'danger'
+  variant = 'danger',
+  icon = 'warning'
 }) => (
   <Modal
     isOpen={isOpen}
@@ -125,12 +118,25 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     }
   >
     <div className="text-center py-4">
-      <div className={`
+      <div
+        className={`
         w-12 h-12 mx-auto mb-4 rounded-lg flex items-center justify-center
-        ${variant === 'danger' ? 'bg-red-50 text-red-500 border border-red-200' : 'bg-blue-50 text-blue-500 border border-blue-200'}
-      `}>
+        ${icon === 'logout' ? 'bg-amber-50 text-amber-600 border border-amber-200' : variant === 'danger' ? 'bg-red-50 text-red-500 border border-red-200' : 'bg-blue-50 text-blue-500 border border-blue-200'}
+      `}
+      >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          {icon === 'logout' ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11V3m6.364 2.636a9 9 0 11-12.728 0" />
+          ) : icon === 'info' ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 22a10 10 0 100-20 10 10 0 000 20z" />
+          ) : (
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          )}
         </svg>
       </div>
       <p className="text-slate-600 whitespace-pre-line">{message}</p>

@@ -1,5 +1,3 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,7 +17,7 @@
   }
   
   html {
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   
@@ -308,4 +306,84 @@
 .fc .fc-event.holiday-event.company-holiday {
   background-color: #14b8a6 !important;
   border-color: #14b8a6 !important;
+}
+
+.fc .fc-event.event-type-inspection {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-maintenance {
+  background-color: #22c55e !important;
+  border-color: #22c55e !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-contract_end {
+  background-color: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-meeting {
+  background-color: #f59e0b !important;
+  border-color: #f59e0b !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-remote_support {
+  background-color: #06b6d4 !important;
+  border-color: #06b6d4 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-training {
+  background-color: #8b5cf6 !important;
+  border-color: #8b5cf6 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-sales_support {
+  background-color: #0ea5a4 !important;
+  border-color: #0ea5a4 !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-event.event-type-other {
+  background-color: #64748b !important;
+  border-color: #64748b !important;
+  color: #ffffff !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-inspection .fc-event-dot {
+  border-color: #3b82f6 !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-maintenance .fc-event-dot {
+  border-color: #22c55e !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-contract_end .fc-event-dot {
+  border-color: #ef4444 !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-meeting .fc-event-dot {
+  border-color: #f59e0b !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-remote_support .fc-event-dot {
+  border-color: #06b6d4 !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-training .fc-event-dot {
+  border-color: #8b5cf6 !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-sales_support .fc-event-dot {
+  border-color: #0ea5a4 !important;
+}
+
+.fc .fc-daygrid-dot-event.event-type-other .fc-event-dot {
+  border-color: #64748b !important;
 }
