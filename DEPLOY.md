@@ -12,6 +12,7 @@ Quick references:
 - Short checklist: `DEPLOY-CHECKLIST.md`
 - Release notes template/history: `RELEASE_NOTES-2026-03-03.md`
 - Manual backend start script on NAS: `server/scripts/run-api.sh`
+- NAS boot script template: `server/scripts/S99intruevineims.sh`
 
 ## Important Notes
 
@@ -91,6 +92,14 @@ What `deploy-backend.bat` does:
 - Node binary on NAS: `/var/packages/Node.js_v20/target/usr/local/bin/node`
 - Boot script: `/usr/local/etc/rc.d/S99intruevineims.sh`
 - Backend log: `/volume1/web_packages/MA/server/app.log`
+
+Boot script install example:
+
+```bash
+cp /volume1/web_packages/MA/server/scripts/S99intruevineims.sh /usr/local/etc/rc.d/S99intruevineims.sh
+chmod 755 /usr/local/etc/rc.d/S99intruevineims.sh
+sudo /usr/local/etc/rc.d/S99intruevineims.sh restart
+```
 
 ## Nginx Runtime
 
