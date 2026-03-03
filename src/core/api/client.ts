@@ -143,6 +143,8 @@ export const contractsAPI = {
     const query = queryParams.toString();
     return fetchAPI<{ contracts: any[]; total: number; page: number; limit: number }>(`/contracts${query ? `?${query}` : ''}`);
   },
+
+  getOptions: () => fetchAPI<Array<{ id: number; customer_name: string; project_title: string }>>('/contracts/options/list'),
   
   getById: (id: number) => fetchAPI<any>(`/contracts/${id}`),
   

@@ -41,7 +41,7 @@ const AssetsPage: React.FC = () => {
   useEffect(() => {
     const loadContractOptions = async () => {
       try {
-        const { contracts: loadedContracts } = await contractsAPI.getAll({ page: 1, limit: 1000 });
+        const loadedContracts = await contractsAPI.getOptions();
         setContracts(loadedContracts);
       } catch (error) {
         console.error('Failed to load contract options:', error);

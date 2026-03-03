@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/core/state/store';
+import { contractsAPI } from '@/core/api/client';
 import { Modal, Button, Input, Select } from '@/shared/components/ui';
 import type { AssetItem, InspectionCycle, AssetDetail, ContactPerson } from '@/types';
 
@@ -15,6 +16,12 @@ interface AssetFormModalProps {
   asset?: AssetWithContract | null;
   readOnly?: boolean;
   onSuccess?: () => void;
+}
+
+interface ContractOption {
+  id: number;
+  customer_name: string;
+  project_title: string;
 }
 
 const CATEGORY_OPTIONS = [
@@ -75,10 +82,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   const addAsset = useAppStore((state) => state.addAsset);
   const updateAsset = useAppStore((state) => state.updateAsset);
   const showToast = useAppStore((state) => state.showToast);
-  const contracts = useAppStore((state) => state.contracts);
-  const loadContracts = useAppStore((state) => state.loadContracts);
 
   const [selectedContractId, setSelectedContractId] = useState<number>(0);
+  const [contracts, setContracts] = useState<ContractOption[]>([]);
   const [formData, setFormData] = useState<Partial<AssetItem>>({
     category: 'HW',
     item: '',
@@ -111,8 +117,18 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({
   };
 
   useEffect(() => {
-    loadContracts();
-  }, [loadContracts]);
+    const loadContractOptions = async () => {
+      try {
+        const loadedContracts = await contractsAPI.getOptions();
+        setContracts(loadedContracts);
+      } catch (error) {
+        console.error('계약 옵션 로드 실패:', error);
+        setContracts([]);
+      }
+    };
+
+    loadContractOptions();
+  }, []);
 
   useEffect(() => {
     if (asset) {

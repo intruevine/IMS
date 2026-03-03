@@ -204,6 +204,26 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// List contract options for selectors (auth required)
+router.get('/options/list', authenticateToken, async (_req, res) => {
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    const contracts = await conn.query(
+      `SELECT id, customer_name, project_title, start_date, end_date, created_at
+       FROM contracts
+       ORDER BY customer_name ASC, project_title ASC, created_at DESC`
+    );
+
+    res.json(convertBigInt(contracts));
+  } catch (error) {
+    console.error('Error fetching contract options:', error);
+    res.status(500).json({ error: 'Failed to fetch contract options' });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // Get contract by id (auth required)
 router.get('/:id', authenticateToken, async (req, res) => {
   let conn;
