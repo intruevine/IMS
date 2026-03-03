@@ -63,6 +63,12 @@ const AssetsPage: React.FC = () => {
   }, [contracts, selectedContractId]);
 
   useEffect(() => {
+    setAssetFilter('all');
+    setAssetSearchText('');
+    setCycleFilter('all');
+  }, [selectedContractId, setAssetFilter, setAssetSearchText]);
+
+  useEffect(() => {
     const loadContractAssets = async () => {
       if (!selectedContractId) {
         setContractAssets([]);
